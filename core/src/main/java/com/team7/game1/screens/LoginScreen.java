@@ -22,7 +22,6 @@ public class LoginScreen implements Screen {
     private final DarkRomanceGame game;
     private Stage stage;
     private VisTextField usernameField;
-    private VisTextField passwordField;
     private Label errorLabel;
     private NetworkClient networkClient;
     private VisDialog loadingDialog;
@@ -42,106 +41,93 @@ public class LoginScreen implements Screen {
         stage.addActor(table);
 
         usernameField = new VisTextField();
-        usernameField.setMessageText("Логин");
-        passwordField = new VisTextField();
-        passwordField.setPasswordMode(true);
-        passwordField.setMessageText("Пароль");
+        usernameField.setMessageText("Введите имя");
 
-        VisTextButton loginButton = new VisTextButton("Войти");
-        VisTextButton registerButton = new VisTextButton("Регистрация");
+        VisTextButton continueButton = new VisTextButton("Продолжить");
         errorLabel = new Label("", DarkRomanceGame.skin);
         errorLabel.setColor(Color.RED);
 
-        table.add(usernameField).width(200).padBottom(10).row();
-        table.add(passwordField).width(200).padBottom(20).row();
-        table.add(loginButton).width(100).padRight(10);
-        table.add(registerButton).width(100).row();
-        table.add(errorLabel).colspan(2).padTop(20);
+        table.add(usernameField).width(200).padBottom(20).row();
+        table.add(continueButton).width(120).row();
+        table.add(errorLabel).padTop(20);
 
-        loginButton.addListener(new ClickListener() {
+        continueButton.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
-                attemptLogin();
+                String username = usernameField.getText().trim();
+                if (username.isEmpty()) {
+                    errorLabel.setText("Введите имя");
+                    return;
+                }
+                showConfirmDialog(username);
             }
         });
 
-        registerButton.addListener(new ClickListener() {
-            @Override
-            public void clicked(InputEvent event, float x, float y) {
-                attemptRegister();
-            }
-        });
-
-        // Диалог ожидания
+        // Диалог загрузки
         loadingDialog = new VisDialog("Подключение");
         loadingDialog.setModal(true);
         loadingDialog.add(new Label("Пожалуйста, подождите...", DarkRomanceGame.skin));
         loadingDialog.pack();
     }
 
+    private void showConfirmDialog(String username) {
+        VisDialog confirmDialog = new VisDialog("Подтверждение");
+        confirmDialog.setModal(true);
+        confirmDialog.add(new Label("Вы уверены, что хотите войти как " + username + "?", DarkRomanceGame.skin));
+        confirmDialog.pack();
+
+        VisTextButton yesButton = new VisTextButton("Да");
+        VisTextButton noButton = new VisTextButton("Нет");
+        confirmDialog.button(yesButton);
+        confirmDialog.button(noButton);
+
+        yesButton.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                confirmDialog.fadeOut();
+                attemptLogin(username);
+            }
+        });
+
+        noButton.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                confirmDialog.fadeOut();
+            }
+        });
+
+        confirmDialog.show(stage);
+    }
+
+    private void attemptLogin(String username) {
+        errorLabel.setText("");
+        showLoading();
+
+        networkClient.connect(Constants.SERVER_HOST, Constants.SERVER_PORT, new NetworkCallback() {
+            @Override
+            public void onResponse(String response) {
+                Gdx.app.postRunnable(() -> {
+                    hideLoading();
+                    if (response.equals("OK")) {
+                        game.setScreen(new IntroScreen(game));
+                    } else {
+                        errorLabel.setText(response);
+                    }
+                    networkClient.disconnect();
+                });
+            }
+        });
+        networkClient.send("LOGIN:" + username);
+    }
+
     private void showLoading() {
         loadingDialog.show(stage);
-        // блокируем ввод в поля, чтобы не нажимали повторно
         usernameField.setDisabled(true);
-        passwordField.setDisabled(true);
     }
 
     private void hideLoading() {
         loadingDialog.fadeOut();
         usernameField.setDisabled(false);
-        passwordField.setDisabled(false);
-    }
-
-    private void attemptLogin() {
-        String username = usernameField.getText().trim();
-        String password = passwordField.getText().trim();
-        if (username.isEmpty() || password.isEmpty()) {
-            errorLabel.setText("Заполните все поля");
-            return;
-        }
-        errorLabel.setText("");
-        showLoading();
-        networkClient.connect(Constants.SERVER_HOST, Constants.SERVER_PORT, new NetworkCallback() {
-            @Override
-            public void onResponse(String response) {
-                Gdx.app.postRunnable(() -> {
-                    hideLoading();
-                    if (response.equals("OK")) {
-                        game.setScreen(new IntroScreen(game));
-                    } else {
-                        errorLabel.setText(response);
-                    }
-                    networkClient.disconnect();
-                });
-            }
-        });
-        networkClient.send("LOGIN:" + username + ":" + password);
-    }
-
-    private void attemptRegister() {
-        String username = usernameField.getText().trim();
-        String password = passwordField.getText().trim();
-        if (username.isEmpty() || password.isEmpty()) {
-            errorLabel.setText("Заполните все поля");
-            return;
-        }
-        errorLabel.setText("");
-        showLoading();
-        networkClient.connect(Constants.SERVER_HOST, Constants.SERVER_PORT, new NetworkCallback() {
-            @Override
-            public void onResponse(String response) {
-                Gdx.app.postRunnable(() -> {
-                    hideLoading();
-                    if (response.equals("OK")) {
-                        game.setScreen(new IntroScreen(game));
-                    } else {
-                        errorLabel.setText(response);
-                    }
-                    networkClient.disconnect();
-                });
-            }
-        });
-        networkClient.send("REGISTER:" + username + ":" + password);
     }
 
     @Override

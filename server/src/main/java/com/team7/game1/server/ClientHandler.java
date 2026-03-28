@@ -18,24 +18,17 @@ public class ClientHandler implements Runnable {
              PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
 
             System.out.println("Client connected: " + socket.getInetAddress());
+
             String inputLine;
             while ((inputLine = in.readLine()) != null) {
                 System.out.println("Received: " + inputLine);
                 String[] parts = inputLine.split(":");
                 String command = parts[0];
 
-                if (command.equals("REGISTER") && parts.length == 2) {
+                if (command.equals("LOGIN") && parts.length == 2) {
                     String username = parts[1];
-                    boolean ok = db.register(username);
-                    String response = ok ? "OK" : "ERROR:Username already exists";
-                    System.out.println("Sending: " + response);
-                    out.println(response);
-                } else if (command.equals("LOGIN") && parts.length == 2) {
-                    String username = parts[1];
-                    boolean ok = db.login(username);
-                    String response = ok ? "OK" : "ERROR:Invalid username";
-                    System.out.println("Sending: " + response);
-                    out.println(response);
+                    boolean ok = db.loginOrCreate(username);
+                    out.println(ok ? "OK" : "ERROR:Failed to login");
                 } else {
                     out.println("ERROR:Unknown command");
                 }
@@ -43,7 +36,10 @@ public class ClientHandler implements Runnable {
         } catch (IOException e) {
             e.printStackTrace();
         } finally {
-            try { socket.close(); } catch (IOException e) {}
+            try {
+                socket.close();
+            } catch (IOException e) {}
+            System.out.println("Client disconnected");
         }
     }
 }
