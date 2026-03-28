@@ -46,6 +46,7 @@ import java.util.Locale;
  */
 public class StartupHelper {
 
+
 	private StartupHelper() {}
 
 	private static final String JVM_RESTARTED_ARG = "jvmIsRestarted";
