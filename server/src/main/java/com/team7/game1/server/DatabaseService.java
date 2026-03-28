@@ -22,46 +22,33 @@ public class DatabaseService {
         }
     }
 
-    public boolean register(String username, String password) {
-        String hashed = hashPassword(password);
-        String sql = "INSERT INTO users (username, password) VALUES (?, ?)";
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+    public boolean loginOrCreate(String username) {
+        if (username == null || username.trim().isEmpty()) return false;
+        username = username.trim();
+
+        // Проверяем, есть ли пользователь
+        String checkSql = "SELECT id FROM users WHERE username = ?";
+        try (PreparedStatement stmt = connection.prepareStatement(checkSql)) {
             stmt.setString(1, username);
-            stmt.setString(2, hashed);
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                // Пользователь существует
+                return true;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+
+        // Пользователя нет, создаём нового
+        String insertSql = "INSERT INTO users (username) VALUES (?)";
+        try (PreparedStatement stmt = connection.prepareStatement(insertSql)) {
+            stmt.setString(1, username);
             stmt.executeUpdate();
             return true;
         } catch (SQLException e) {
-            if (e.getErrorCode() == 1062) { // duplicate entry
-                System.out.println("User already exists: " + username);
-            } else {
-                e.printStackTrace();
-            }
-            return false;
-        }
-    }
-
-    public boolean login(String username, String password) {
-        String hashed = hashPassword(password);
-        String sql = "SELECT * FROM users WHERE username = ? AND password = ?";
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-            stmt.setString(1, username);
-            stmt.setString(2, hashed);
-            ResultSet rs = stmt.executeQuery();
-            return rs.next();
-        } catch (SQLException e) {
             e.printStackTrace();
             return false;
-        }
-    }
-
-    private String hashPassword(String password) {
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] hash = md.digest(password.getBytes());
-            return Base64.getEncoder().encodeToString(hash);
-        } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
-            return password;
         }
     }
 

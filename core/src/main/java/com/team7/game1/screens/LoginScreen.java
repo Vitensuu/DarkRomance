@@ -27,7 +27,6 @@ public class LoginScreen implements Screen {
     private Label title;
 
     private VisTextField usernameField;
-    private VisTextField passwordField;
     private Label errorLabel;
 
     private NetworkClient networkClient;
@@ -63,146 +62,95 @@ public class LoginScreen implements Screen {
 
         // поля
         usernameField = new VisTextField();
-        usernameField.setMessageText("Логин");
+        usernameField.setMessageText("Введите имя");
 
-        passwordField = new VisTextField();
-        passwordField.setPasswordMode(true);
-        passwordField.setPasswordCharacter('*');
-        passwordField.setMessageText("Пароль");
-
-        // кнопки
-        Label loginButton = new Label("Войти", DarkRomanceGame.skin);
-        loginButton.setColor(Color.WHITE);
-
-        Label registerLink = new Label("Нет аккаунта? Регистрация", DarkRomanceGame.skin);
-        registerLink.setColor(Color.CYAN);
-
-        Label loginLink = new Label("Уже есть аккаунт? Войти", DarkRomanceGame.skin);
-        loginLink.setColor(Color.CYAN);
-
+        VisTextButton continueButton = new VisTextButton("Продолжить");
         errorLabel = new Label("", DarkRomanceGame.skin);
         errorLabel.setColor(Color.RED);
 
-        // 📐 UI
-        table.add(title).colspan(2).padBottom(40).row();
-        table.add(usernameField).width(250).row();
-        table.add(passwordField).width(250).row();
-        table.add(loginButton).padTop(10).row();
-        table.add(registerLink).padTop(5).row();
-        table.add(loginLink).padTop(5).row();
-        table.add(errorLabel).padTop(20).row();
+        table.add(usernameField).width(200).padBottom(20).row();
+        table.add(continueButton).width(120).row();
+        table.add(errorLabel).padTop(20);
 
-        // 🎯 события
-        loginButton.addListener(new ClickListener() {
+        continueButton.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
-                if (isLoginMode) {
-                    attemptLogin();
-                } else {
-                    attemptRegister();
+                String username = usernameField.getText().trim();
+                if (username.isEmpty()) {
+                    errorLabel.setText("Введите имя");
+                    return;
                 }
+                showConfirmDialog(username);
             }
         });
 
-        registerLink.addListener(new ClickListener() {
-            @Override
-            public void clicked(InputEvent event, float x, float y) {
-                isLoginMode = false;
-
-                loginButton.setText("Зарегистрироваться");
-                title.setText("DARK ROMANCE\nРегистрация"); // 🔥 ВАЖНО
-                errorLabel.setText("Введите данные для регистрации");
-            }
-        });
-
-        loginLink.addListener(new ClickListener() {
-            @Override
-            public void clicked(InputEvent event, float x, float y) {
-                isLoginMode = true;
-
-                loginButton.setText("Войти");
-                title.setText("DARK ROMANCE\nВход"); // 🔥 ВАЖНО
-                errorLabel.setText("Введите данные для входа");
-            }
-        });
-
-        // ⏳ диалог загрузки
+        // Диалог загрузки
         loadingDialog = new VisDialog("Подключение");
         loadingDialog.setModal(true);
         loadingDialog.add(new Label("Пожалуйста, подождите...", DarkRomanceGame.skin));
         loadingDialog.pack();
     }
 
+    private void showConfirmDialog(String username) {
+        VisDialog confirmDialog = new VisDialog("Подтверждение");
+        confirmDialog.setModal(true);
+        confirmDialog.add(new Label("Вы уверены, что хотите войти как " + username + "?", DarkRomanceGame.skin));
+        confirmDialog.pack();
+
+        VisTextButton yesButton = new VisTextButton("Да");
+        VisTextButton noButton = new VisTextButton("Нет");
+        confirmDialog.button(yesButton);
+        confirmDialog.button(noButton);
+
+        yesButton.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                confirmDialog.fadeOut();
+                attemptLogin(username);
+            }
+        });
+
+        noButton.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                confirmDialog.fadeOut();
+            }
+        });
+
+        confirmDialog.show(stage);
+    }
+
+    private void attemptLogin(String username) {
+        errorLabel.setText("");
+        showLoading();
+
+        networkClient.connect(Constants.SERVER_HOST, Constants.SERVER_PORT, new NetworkCallback() {
+            @Override
+            public void onResponse(String response) {
+                Gdx.app.postRunnable(() -> {
+                    hideLoading();
+
+                    if (response.equals("OK")) {
+                        game.setScreen(new IntroScreen(game));
+                    } else {
+                        errorLabel.setText(response);
+                    }
+
+                    networkClient.disconnect();
+                });
+            }
+        });
+        networkClient.send("LOGIN:" + username);
+    }
+
     private void showLoading() {
         loadingDialog.show(stage);
         usernameField.setDisabled(true);
-        passwordField.setDisabled(true);
     }
 
     private void hideLoading() {
         loadingDialog.fadeOut();
         usernameField.setDisabled(false);
-        passwordField.setDisabled(false);
-    }
-
-    private void attemptLogin() {
-        String username = usernameField.getText().trim();
-        String password = passwordField.getText().trim();
-
-        if (username.isEmpty() || password.isEmpty()) {
-            errorLabel.setText("Заполните все поля");
-            return;
-        }
-
-        errorLabel.setText("");
-        showLoading();
-
-        networkClient.connect(Constants.SERVER_HOST, Constants.SERVER_PORT, new NetworkCallback() {
-            @Override
-            public void onResponse(String response) {
-                Gdx.app.postRunnable(() -> {
-                    hideLoading();
-
-                    if (response.equals("OK")) {
-                        game.setScreen(new IntroScreen(game));
-                    } else {
-                        errorLabel.setText(response);
-                    }
-
-                    networkClient.disconnect();
-                });
-            }
-        });
-
-        networkClient.send("LOGIN:" + username + ":" + password);
-    }
-
-    private void attemptRegister() {
-        String username = usernameField.getText().trim();
-        String password = passwordField.getText().trim();
-
-
-        errorLabel.setText("");
-        showLoading();
-
-        networkClient.connect(Constants.SERVER_HOST, Constants.SERVER_PORT, new NetworkCallback() {
-            @Override
-            public void onResponse(String response) {
-                Gdx.app.postRunnable(() -> {
-                    hideLoading();
-
-                    if (response.equals("OK")) {
-                        game.setScreen(new IntroScreen(game));
-                    } else {
-                        errorLabel.setText(response);
-                    }
-
-                    networkClient.disconnect();
-                });
-            }
-        });
-
-        networkClient.send("REGISTER:" + username + ":" + password);
     }
 
     @Override
