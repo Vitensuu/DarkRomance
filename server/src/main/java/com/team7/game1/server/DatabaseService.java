@@ -22,17 +22,16 @@ public class DatabaseService {
         }
     }
 
-    public boolean register(String username, String password) {
-        String hashed = hashPassword(password);
-        String sql = "INSERT INTO users (username, password) VALUES (?, ?)";
+    public boolean register(String username) {
+        String sql = "INSERT INTO users (username) VALUES (?)";
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setString(1, username);
-            stmt.setString(2, hashed);
             stmt.executeUpdate();
             return true;
         } catch (SQLException e) {
-            if (e.getErrorCode() == 1062) { // duplicate entry
-                System.out.println("User already exists: " + username);
+            // дубликат username
+            if (e.getErrorCode() == 1062) {
+                System.out.println("Username already exists: " + username);
             } else {
                 e.printStackTrace();
             }
@@ -40,28 +39,15 @@ public class DatabaseService {
         }
     }
 
-    public boolean login(String username, String password) {
-        String hashed = hashPassword(password);
-        String sql = "SELECT * FROM users WHERE username = ? AND password = ?";
+    public boolean login(String username) {
+        String sql = "SELECT * FROM users WHERE username = ?";
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setString(1, username);
-            stmt.setString(2, hashed);
             ResultSet rs = stmt.executeQuery();
             return rs.next();
         } catch (SQLException e) {
             e.printStackTrace();
             return false;
-        }
-    }
-
-    private String hashPassword(String password) {
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] hash = md.digest(password.getBytes());
-            return Base64.getEncoder().encodeToString(hash);
-        } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
-            return password;
         }
     }
 

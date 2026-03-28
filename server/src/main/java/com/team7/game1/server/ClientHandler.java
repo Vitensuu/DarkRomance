@@ -20,17 +20,20 @@ public class ClientHandler implements Runnable {
             System.out.println("Client connected: " + socket.getInetAddress());
             String inputLine;
             while ((inputLine = in.readLine()) != null) {
-                System.out.println("Received: " + inputLine);  // обязательно
+                System.out.println("Received: " + inputLine);
                 String[] parts = inputLine.split(":");
                 String command = parts[0];
-                if (command.equals("REGISTER") && parts.length == 3) {
-                    boolean ok = db.register(parts[1], parts[2]);
+
+                if (command.equals("REGISTER") && parts.length == 2) {
+                    String username = parts[1];
+                    boolean ok = db.register(username);
                     String response = ok ? "OK" : "ERROR:Username already exists";
                     System.out.println("Sending: " + response);
                     out.println(response);
-                } else if (command.equals("LOGIN") && parts.length == 3) {
-                    boolean ok = db.login(parts[1], parts[2]);
-                    String response = ok ? "OK" : "ERROR:Invalid credentials";
+                } else if (command.equals("LOGIN") && parts.length == 2) {
+                    String username = parts[1];
+                    boolean ok = db.login(username);
+                    String response = ok ? "OK" : "ERROR:Invalid username";
                     System.out.println("Sending: " + response);
                     out.println(response);
                 } else {
@@ -39,6 +42,8 @@ public class ClientHandler implements Runnable {
             }
         } catch (IOException e) {
             e.printStackTrace();
+        } finally {
+            try { socket.close(); } catch (IOException e) {}
         }
     }
 }
