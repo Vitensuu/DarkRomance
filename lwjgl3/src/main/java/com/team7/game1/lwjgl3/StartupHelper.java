@@ -43,6 +43,7 @@ import java.util.Locale;
  * </ul>
  * <a href="https://jvm-gaming.org/t/starting-jvm-on-mac-with-xstartonfirstthread-programmatically/57547">Based on this java-gaming.org post by kappa</a>
  * @author damios
+ *
  */
 public class StartupHelper {
 
