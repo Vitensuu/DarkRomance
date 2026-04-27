@@ -12,9 +12,9 @@ import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.team7.game1.models.CharacterAnimationState;
+import com.team7.game1.models.NPCHero;
 import com.team7.game1.models.PlayerCharacter;
 import com.team7.game1.models.NPC;
-import com.team7.game1.models.VillagerNPC;
 import com.team7.game1.DarkRomanceGame;
 
 public class GameScreen implements Screen {
@@ -45,8 +45,8 @@ public class GameScreen implements Screen {
             DarkRomanceGame.DESIGN_HEIGHT / 2f - 64f
         );
         npcs = new Array<NPC>();
-        npcs.add(new VillagerNPC(220f, 160f, 120f, 120f, 420f, 280f));
-        npcs.add(new VillagerNPC(860f, 420f, 760f, 360f, 1080f, 620f));
+        npcs.add(new NPCHero(220f, 160f, 120f, 120f, 420f, 280f, NPCHero.ROBE_ARCHER));
+        npcs.add(new NPCHero(860f, 420f, 760f, 360f, 1080f, 620f, NPCHero.MIXED_METAL_ARCHER));
     }
 
     @Override

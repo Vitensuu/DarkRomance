@@ -113,6 +113,10 @@ public abstract class NPC {
         actionTime = 0f;
     }
 
+    protected boolean isActionAnimationPlaying() {
+        return animationState.isActionAnimation();
+    }
+
     public void dispose() {
         animator.dispose();
     }

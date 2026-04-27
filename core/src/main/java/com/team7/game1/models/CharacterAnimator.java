@@ -5,6 +5,7 @@ import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.Animation;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.ObjectMap;
 
 public class CharacterAnimator {
@@ -69,37 +70,64 @@ public class CharacterAnimator {
 
         for (FacingDirection facing : FacingDirection.values()) {
             String assetBaseName = buildDirectionalAssetName(facing.getAssetDirection(), state);
-            String folder = basePath + assetBaseName + "/";
-            FileHandle idleFile = Gdx.files.internal(folder + assetBaseName + ".png");
+            String folder = resolveFolder(state, assetBaseName);
 
-            if (!idleFile.exists() && state != CharacterAnimationState.BASE) {
-                pack.copyFrom(basePack, facing);
+            if (state == CharacterAnimationState.BASE) {
+                if (folder == null) {
+                    throw missingAsset(
+                        "Missing base animation folder",
+                        buildFolderCandidates(state, assetBaseName).toString(", "),
+                        facing,
+                        state
+                    );
+                }
+                loadBaseLocomotion(pack, facing, folder, assetBaseName, state);
                 continue;
             }
-            if (!idleFile.exists()) {
-                throw missingAsset("Missing base idle frame", idleFile.path(), facing, state);
-            }
 
-            TextureRegion idle = getOrLoadRegion(idleFile.path());
+            pack.copyFrom(basePack, facing);
+            if (folder != null) {
+                loadActionAnimationIfPresent(pack, facing, state, folder, assetBaseName);
+            }
+        }
+
+        return pack;
+    }
+
+    private void loadBaseLocomotion(AnimationPack pack, FacingDirection facing, String folder,
+                                    String assetBaseName, CharacterAnimationState state) {
+        String idlePath = folder + assetBaseName + ".png";
+        FileHandle idleFile = Gdx.files.internal(idlePath);
+        FileHandle firstWalkFile = Gdx.files.internal(folder + assetBaseName + "_walk_1.png");
+
+        if (idleFile.exists() && firstWalkFile.exists()) {
+            TextureRegion idle = getOrLoadRegion(idlePath);
             TextureRegion[] walkFrames = new TextureRegion[8];
             for (int i = 0; i < walkFrames.length; i++) {
                 String framePath = folder + assetBaseName + "_walk_" + (i + 1) + ".png";
                 FileHandle frameFile = Gdx.files.internal(framePath);
-                if (!frameFile.exists() && state != CharacterAnimationState.BASE && basePack != null) {
-                    walkFrames[i] = basePack.getWalk(facing).getKeyFrames()[i];
-                } else {
-                    if (!frameFile.exists()) {
-                        throw missingAsset("Missing base walk frame", framePath, facing, state);
-                    }
-                    walkFrames[i] = getOrLoadRegion(framePath);
+                if (!frameFile.exists()) {
+                    throw missingAsset("Missing base walk frame", framePath, facing, state);
                 }
+                walkFrames[i] = getOrLoadRegion(framePath);
             }
-
             pack.put(facing, idle, new Animation<TextureRegion>(FRAME_DURATION, walkFrames));
-            loadActionAnimationIfPresent(pack, facing, state, folder, assetBaseName);
+            return;
         }
 
-        return pack;
+        int numberedFrameCount = countSequentialFrames(folder, assetBaseName, 32);
+        if (numberedFrameCount > 0) {
+            TextureRegion idle = getOrLoadRegion(folder + assetBaseName + "_1.png");
+            TextureRegion[] walkFrames = new TextureRegion[8];
+            for (int i = 0; i < walkFrames.length; i++) {
+                int frameIndex = Math.min(i + 1, numberedFrameCount);
+                walkFrames[i] = getOrLoadRegion(folder + assetBaseName + "_" + frameIndex + ".png");
+            }
+            pack.put(facing, idle, new Animation<TextureRegion>(FRAME_DURATION, walkFrames));
+            return;
+        }
+
+        throw missingAsset("Missing base idle frame", idlePath, facing, state);
     }
 
     private void loadActionAnimationIfPresent(AnimationPack pack, FacingDirection facing, CharacterAnimationState state,
@@ -108,21 +136,14 @@ public class CharacterAnimator {
             return;
         }
 
-        String firstActionFramePath = folder + assetBaseName + "_1.png";
-        FileHandle firstActionFrame = Gdx.files.internal(firstActionFramePath);
-        if (!firstActionFrame.exists()) {
+        int frameCount = countSequentialFrames(folder, assetBaseName, 32);
+        if (frameCount == 0) {
             return;
         }
 
-        TextureRegion[] actionFrames = new TextureRegion[state.getActionFrameCount()];
+        TextureRegion[] actionFrames = new TextureRegion[frameCount];
         for (int i = 0; i < actionFrames.length; i++) {
             String actionFramePath = folder + assetBaseName + "_" + (i + 1) + ".png";
-            FileHandle actionFrameFile = Gdx.files.internal(actionFramePath);
-            if (!actionFrameFile.exists()) {
-                throw new IllegalStateException(
-                    "Missing action frame '" + actionFramePath + "' for state " + state + " facing " + facing
-                );
-            }
             actionFrames[i] = getOrLoadRegion(actionFramePath);
         }
 
@@ -135,6 +156,52 @@ public class CharacterAnimator {
             return baseName;
         }
         return baseName + "_" + state.getSuffix();
+    }
+
+    private String resolveFolder(CharacterAnimationState state, String assetBaseName) {
+        Array<String> candidates = buildFolderCandidates(state, assetBaseName);
+        for (String candidate : candidates) {
+            if (hasFrames(candidate, assetBaseName)) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    private Array<String> buildFolderCandidates(CharacterAnimationState state, String assetBaseName) {
+        Array<String> candidates = new Array<String>();
+        candidates.add(basePath + assetBaseName + "/");
+        candidates.add(basePath + assetPrefix + "/" + assetBaseName + "/");
+        if (!state.getSuffix().isEmpty()) {
+            candidates.add(basePath + state.getSuffix() + "/" + assetBaseName + "/");
+            candidates.add(basePath + state.getSuffix() + " /" + assetBaseName + "/");
+        }
+        return candidates;
+    }
+
+    private boolean hasFrames(String folder, String assetBaseName) {
+        FileHandle idle = Gdx.files.internal(folder + assetBaseName + ".png");
+        if (idle.exists()) {
+            return true;
+        }
+        FileHandle walk = Gdx.files.internal(folder + assetBaseName + "_walk_1.png");
+        if (walk.exists()) {
+            return true;
+        }
+        FileHandle firstNumbered = Gdx.files.internal(folder + assetBaseName + "_1.png");
+        return firstNumbered.exists();
+    }
+
+    private int countSequentialFrames(String folder, String assetBaseName, int maxFrames) {
+        int count = 0;
+        for (int i = 1; i <= maxFrames; i++) {
+            FileHandle frame = Gdx.files.internal(folder + assetBaseName + "_" + i + ".png");
+            if (!frame.exists()) {
+                break;
+            }
+            count++;
+        }
+        return count;
     }
 
     private String normalizeFolder(String folder) {

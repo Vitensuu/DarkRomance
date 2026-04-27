@@ -4,8 +4,8 @@ import com.badlogic.gdx.graphics.Color;
 
 public class VillagerNPC extends NPC {
 
-    private static final String DEFAULT_ASSET_FOLDER = "characters/robe_frames";
-    private static final String DEFAULT_ASSET_PREFIX = "robe";
+    private static final String DEFAULT_ASSET_FOLDER = "characters/mixed_metal";
+    private static final String DEFAULT_ASSET_PREFIX = "mm";
     private boolean greetingTriggered;
 
     public VillagerNPC(float startX, float startY,
