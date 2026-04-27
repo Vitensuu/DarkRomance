@@ -127,6 +127,21 @@ public class CharacterAnimator {
             return;
         }
 
+        // Fallback for packs where BASE locomotion lives under ".../walk/<prefix>_<dir>_walk/"
+        // and frames are named "<prefix>_<dir>_walk_1.png", "<prefix>_<dir>_walk_2.png", etc.
+        String walkBaseName = assetBaseName + "_walk";
+        int walkNumberedFrameCount = countSequentialFrames(folder, walkBaseName, 32);
+        if (walkNumberedFrameCount > 0) {
+            TextureRegion idle = getOrLoadRegion(folder + walkBaseName + "_1.png");
+            TextureRegion[] walkFrames = new TextureRegion[8];
+            for (int i = 0; i < walkFrames.length; i++) {
+                int frameIndex = Math.min(i + 1, walkNumberedFrameCount);
+                walkFrames[i] = getOrLoadRegion(folder + walkBaseName + "_" + frameIndex + ".png");
+            }
+            pack.put(facing, idle, new Animation<TextureRegion>(FRAME_DURATION, walkFrames));
+            return;
+        }
+
         throw missingAsset("Missing base idle frame", idlePath, facing, state);
     }
 
@@ -175,6 +190,9 @@ public class CharacterAnimator {
         if (!state.getSuffix().isEmpty()) {
             candidates.add(basePath + state.getSuffix() + "/" + assetBaseName + "/");
             candidates.add(basePath + state.getSuffix() + " /" + assetBaseName + "/");
+        } else {
+            candidates.add(basePath + "walk/" + assetBaseName + "_walk/");
+            candidates.add(basePath + assetPrefix + "/walk/" + assetBaseName + "_walk/");
         }
         return candidates;
     }

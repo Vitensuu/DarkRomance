@@ -71,6 +71,11 @@ public class PlayerCharacter {
         return position.y + getDrawHeight() / 2f;
     }
 
+    public void setBottomLeft(float x, float y) {
+        position.x = x + getDrawWidth() / 2f;
+        position.y = y;
+    }
+
     public float getDrawWidth() {
         return animator.getDrawWidth(facing, isMoving(), locomotionTime, actionTime, animationState);
     }

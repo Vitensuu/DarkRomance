@@ -5,8 +5,8 @@ import com.badlogic.gdx.graphics.Color;
 public class NPCHero extends NPC {
 
     public static final HeroProfile ROBE_ARCHER = new HeroProfile(
-        "characters/robe_frames",
-        "robe",
+        "characters/dark_skinned",
+        "ds",
         CharacterAnimationState.ATTACK_BOW,
         0.8f,
         Color.valueOf("6E5B45FF"),

@@ -5,6 +5,7 @@ import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
@@ -12,6 +13,10 @@ import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.NinePatch;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.maps.tiled.TiledMap;
+import com.badlogic.gdx.maps.tiled.TmxMapLoader;
+import com.badlogic.gdx.maps.tiled.renderers.OrthogonalTiledMapRenderer;
+import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.Align;
@@ -29,6 +34,7 @@ public class GameScreen implements Screen {
 
     private static final Color WORLD_COLOR = Color.valueOf("2F4A2CFF");
     private static final Color WORLD_ACCENT = Color.valueOf("405C34FF");
+    private static final float MAP_SCALE = 3.2f;
     private static final String DIALOG_FRAME_TEXTURE_PATH = "ui/dialog/UI_Flat_Frame01a.png";
     private static final String DIALOG_NAMEPLATE_TEXTURE_PATH = "ui/dialog/UI_Flat_FrameMarker01a.png";
     private static final String DIALOG_NEXT_BUTTON_TEXTURE_PATH = "ui/dialog/UI_Flat_Button02a_1.png";
@@ -50,6 +56,8 @@ public class GameScreen implements Screen {
     private SpriteBatch batch;
     private FitViewport viewport;
     private Texture pixel;
+    private TiledMap tiledMap;
+    private OrthogonalTiledMapRenderer mapRenderer;
     private Texture dialogFrameTexture;
     private Texture dialogNameplateTexture;
     private Texture dialogNextButtonTexture;
@@ -60,6 +68,8 @@ public class GameScreen implements Screen {
     private NPC activeDialogNpc;
     private int activeDialogLineIndex;
     private MoveDirection lastPressedDirection = MoveDirection.DOWN;
+    private float worldWidth = DarkRomanceGame.DESIGN_WIDTH;
+    private float worldHeight = DarkRomanceGame.DESIGN_HEIGHT;
 
     public GameScreen(DarkRomanceGame game) {
         this.game = game;
@@ -71,11 +81,12 @@ public class GameScreen implements Screen {
         viewport = new FitViewport(DarkRomanceGame.DESIGN_WIDTH, DarkRomanceGame.DESIGN_HEIGHT);
         viewport.update(Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), true);
         pixel = createSolidTexture(Color.WHITE);
+        loadWorldMap();
         loadDialogTextures();
         dialogueLibrary = new NpcDialogueLibrary();
         player = new PlayerCharacter(
-            DarkRomanceGame.DESIGN_WIDTH / 2f - 32f,
-            DarkRomanceGame.DESIGN_HEIGHT / 2f - 64f
+            worldWidth / 2f - 32f,
+            worldHeight / 2f - 64f
         );
         npcs = new Array<NPC>();
         npcs.add(new NPCHero(220f, 160f, 120f, 120f, 420f, 280f, NPCHero.ROBE_ARCHER));
@@ -85,14 +96,21 @@ public class GameScreen implements Screen {
     @Override
     public void render(float delta) {
         update(delta);
+        updateCamera();
 
         Gdx.gl.glClearColor(WORLD_COLOR.r, WORLD_COLOR.g, WORLD_COLOR.b, 1f);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
         viewport.apply();
+        if (mapRenderer != null) {
+            mapRenderer.setView((OrthographicCamera) viewport.getCamera());
+            mapRenderer.render();
+        }
         batch.setProjectionMatrix(viewport.getCamera().combined);
         batch.begin();
-        drawGround();
+        if (mapRenderer == null) {
+            drawGround();
+        }
 
         TextureRegion frame = player.getCurrentFrame();
         batch.setColor(Color.WHITE);
@@ -165,10 +183,28 @@ public class GameScreen implements Screen {
             }
         }
 
-        player.update(delta, moveX, moveY, DarkRomanceGame.DESIGN_WIDTH, DarkRomanceGame.DESIGN_HEIGHT);
+        player.update(delta, moveX, moveY, worldWidth, worldHeight);
         for (NPC npc : npcs) {
             npc.update(delta, player);
         }
+    }
+
+    private void updateCamera() {
+        OrthographicCamera camera = (OrthographicCamera) viewport.getCamera();
+        float halfViewportWidth = viewport.getWorldWidth() * 0.5f;
+        float halfViewportHeight = viewport.getWorldHeight() * 0.5f;
+
+        float targetX = player.getX() + player.getDrawWidth() * 0.5f;
+        float targetY = player.getY() + player.getDrawHeight() * 0.5f;
+
+        float minX = halfViewportWidth;
+        float maxX = Math.max(halfViewportWidth, worldWidth - halfViewportWidth);
+        float minY = halfViewportHeight;
+        float maxY = Math.max(halfViewportHeight, worldHeight - halfViewportHeight);
+
+        camera.position.x = MathUtils.clamp(targetX, minX, maxX);
+        camera.position.y = MathUtils.clamp(targetY, minY, maxY);
+        camera.update();
     }
 
     private void handleDialogInput() {
@@ -253,30 +289,34 @@ public class GameScreen implements Screen {
             return;
         }
 
+        OrthographicCamera camera = (OrthographicCamera) viewport.getCamera();
+        float panelX = camera.position.x - viewport.getWorldWidth() * 0.5f + DIALOG_X;
+        float panelY = camera.position.y - viewport.getWorldHeight() * 0.5f + DIALOG_Y;
+
         if (dialogFramePatch != null) {
             batch.setColor(Color.WHITE);
-            dialogFramePatch.draw(batch, DIALOG_X, DIALOG_Y, DIALOG_WIDTH, DIALOG_HEIGHT);
+            dialogFramePatch.draw(batch, panelX, panelY, DIALOG_WIDTH, DIALOG_HEIGHT);
         } else {
             batch.setColor(Color.valueOf("15110FCC"));
-            batch.draw(pixel, DIALOG_X, DIALOG_Y, DIALOG_WIDTH, DIALOG_HEIGHT);
+            batch.draw(pixel, panelX, panelY, DIALOG_WIDTH, DIALOG_HEIGHT);
             batch.setColor(Color.valueOf("BBA58DFF"));
-            batch.draw(pixel, DIALOG_X, DIALOG_Y + DIALOG_HEIGHT - 4f, DIALOG_WIDTH, 4f);
-            batch.draw(pixel, DIALOG_X, DIALOG_Y, DIALOG_WIDTH, 4f);
-            batch.draw(pixel, DIALOG_X, DIALOG_Y, 4f, DIALOG_HEIGHT);
-            batch.draw(pixel, DIALOG_X + DIALOG_WIDTH - 4f, DIALOG_Y, 4f, DIALOG_HEIGHT);
+            batch.draw(pixel, panelX, panelY + DIALOG_HEIGHT - 4f, DIALOG_WIDTH, 4f);
+            batch.draw(pixel, panelX, panelY, DIALOG_WIDTH, 4f);
+            batch.draw(pixel, panelX, panelY, 4f, DIALOG_HEIGHT);
+            batch.draw(pixel, panelX + DIALOG_WIDTH - 4f, panelY, 4f, DIALOG_HEIGHT);
         }
 
         BitmapFont titleFont = DarkRomanceGame.skin.getFont("GuildensternSmall");
         BitmapFont titleShadowFont = DarkRomanceGame.skin.getFont("GuildensternSmallShadow");
         BitmapFont bodyFont = DarkRomanceGame.skin.getFont("default-font");
-        float portraitX = DIALOG_X + DIALOG_PADDING;
-        float portraitY = DIALOG_Y + DIALOG_HEIGHT - DIALOG_PADDING - DIALOG_PORTRAIT_SIZE;
+        float portraitX = panelX + DIALOG_PADDING;
+        float portraitY = panelY + DIALOG_HEIGHT - DIALOG_PADDING - DIALOG_PORTRAIT_SIZE;
         float portraitInset = 8f;
         float textX = portraitX + DIALOG_PORTRAIT_SIZE + 24f;
-        float titleTopY = DIALOG_Y + DIALOG_HEIGHT - DIALOG_PADDING;
+        float titleTopY = panelY + DIALOG_HEIGHT - DIALOG_PADDING;
         float bodyTopY = titleTopY - 54f;
-        float textWidth = DIALOG_WIDTH - (textX - DIALOG_X) - DIALOG_PADDING;
-        float hintY = DIALOG_Y + 24f;
+        float textWidth = DIALOG_WIDTH - (textX - panelX) - DIALOG_PADDING;
+        float hintY = panelY + 24f;
         NpcDialogueEntry dialogueEntry = dialogueLibrary.getEntry(activeDialogNpc.getDialogueId());
         String[] dialogLines = dialogueEntry.getLines();
         String dialogText = dialogLines[Math.min(activeDialogLineIndex, dialogLines.length - 1)];
@@ -315,7 +355,7 @@ public class GameScreen implements Screen {
         glyphLayout.setText(titleFont, npcName);
         float nameplateWidth = Math.max(190f, glyphLayout.width + 48f);
         float nameplateX = textX - 8f;
-        float nameplateY = DIALOG_Y + DIALOG_HEIGHT - DIALOG_NAMEPLATE_HEIGHT - 16f;
+        float nameplateY = panelY + DIALOG_HEIGHT - DIALOG_NAMEPLATE_HEIGHT - 16f;
         if (dialogNameplateTexture != null) {
             batch.draw(dialogNameplateTexture, nameplateX, nameplateY, nameplateWidth, DIALOG_NAMEPLATE_HEIGHT);
         } else {
@@ -330,10 +370,10 @@ public class GameScreen implements Screen {
         titleFont.draw(batch, npcName, nameTextX, nameTextY);
         bodyFont.draw(batch, dialogText, textX, bodyTopY, textWidth, Align.left, true);
         glyphLayout.setText(bodyFont, "Esc - close   F / Enter / Space - next");
-        bodyFont.draw(batch, glyphLayout, DIALOG_X + DIALOG_PADDING, hintY);
+        bodyFont.draw(batch, glyphLayout, panelX + DIALOG_PADDING, hintY);
 
-        float buttonX = DIALOG_X + DIALOG_WIDTH - DIALOG_PADDING - DIALOG_NEXT_BUTTON_WIDTH;
-        float buttonY = DIALOG_Y + 18f;
+        float buttonX = panelX + DIALOG_WIDTH - DIALOG_PADDING - DIALOG_NEXT_BUTTON_WIDTH;
+        float buttonY = panelY + 18f;
         nextButtonBounds.set(buttonX, buttonY, DIALOG_NEXT_BUTTON_WIDTH, DIALOG_NEXT_BUTTON_HEIGHT);
         if (dialogNextButtonTexture != null) {
             batch.draw(dialogNextButtonTexture, buttonX, buttonY, DIALOG_NEXT_BUTTON_WIDTH, DIALOG_NEXT_BUTTON_HEIGHT);
@@ -381,6 +421,27 @@ public class GameScreen implements Screen {
         float deltaX = player.getCenterX() - x;
         float deltaY = player.getCenterY() - y;
         return (float) Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+    }
+
+    private void loadWorldMap() {
+        try {
+            tiledMap = new TmxMapLoader().load("maps/map oop.tmx");
+            mapRenderer = new OrthogonalTiledMapRenderer(tiledMap, MAP_SCALE, batch);
+            Integer mapTilesWide = tiledMap.getProperties().get("width", Integer.class);
+            Integer mapTilesHigh = tiledMap.getProperties().get("height", Integer.class);
+            Integer tileWidth = tiledMap.getProperties().get("tilewidth", Integer.class);
+            Integer tileHeight = tiledMap.getProperties().get("tileheight", Integer.class);
+            if (mapTilesWide != null && mapTilesHigh != null && tileWidth != null && tileHeight != null) {
+                worldWidth = mapTilesWide * tileWidth * MAP_SCALE;
+                worldHeight = mapTilesHigh * tileHeight * MAP_SCALE;
+            }
+        } catch (Exception exception) {
+            Gdx.app.error("GameScreen", "Failed to load map maps/map oop.tmx", exception);
+            tiledMap = null;
+            mapRenderer = null;
+            worldWidth = DarkRomanceGame.DESIGN_WIDTH;
+            worldHeight = DarkRomanceGame.DESIGN_HEIGHT;
+        }
     }
 
     private void loadDialogTextures() {
@@ -457,6 +518,12 @@ public class GameScreen implements Screen {
         }
         if (dialogueLibrary != null) {
             dialogueLibrary.dispose();
+        }
+        if (mapRenderer != null) {
+            mapRenderer.dispose();
+        }
+        if (tiledMap != null) {
+            tiledMap.dispose();
         }
         player.dispose();
         for (NPC npc : npcs) {
