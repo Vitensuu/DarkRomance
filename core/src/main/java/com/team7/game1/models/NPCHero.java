@@ -42,6 +42,39 @@ public class NPCHero extends NPC {
     }
 
     @Override
+    public String getDialogTitle() {
+        if (profile == ROBE_ARCHER) {
+            return "Archer";
+        }
+        if (profile == MIXED_METAL_ARCHER) {
+            return "Guardian";
+        }
+        return "Hero";
+    }
+
+    @Override
+    public String getDialogText() {
+        if (profile == ROBE_ARCHER) {
+            return "Keep your voice down. The woods are listening tonight.";
+        }
+        if (profile == MIXED_METAL_ARCHER) {
+            return "If you are heading deeper inside, stay ready and do not travel alone.";
+        }
+        return "Stay alert.";
+    }
+
+    @Override
+    public String getDialogueId() {
+        if (profile == ROBE_ARCHER) {
+            return "archer";
+        }
+        if (profile == MIXED_METAL_ARCHER) {
+            return "guardian";
+        }
+        return "default";
+    }
+
+    @Override
     protected void onReachPlayer(PlayerCharacter player) {
         if (!isActionAnimationPlaying() && profile.contactAnimation != CharacterAnimationState.BASE) {
             triggerAnimationState(profile.contactAnimation, profile.contactAnimationDurationSeconds);

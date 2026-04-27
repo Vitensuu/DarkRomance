@@ -29,6 +29,21 @@ public class VillagerNPC extends NPC {
     }
 
     @Override
+    public String getDialogTitle() {
+        return "Villager";
+    }
+
+    @Override
+    public String getDialogText() {
+        return "Good evening. Strange things have been happening near the village.";
+    }
+
+    @Override
+    public String getDialogueId() {
+        return "villager";
+    }
+
+    @Override
     protected void onReachPlayer(PlayerCharacter player) {
         greetingTriggered = true;
     }

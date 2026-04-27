@@ -7,27 +7,58 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.GlyphLayout;
+import com.badlogic.gdx.graphics.g2d.NinePatch;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.viewport.FitViewport;
+import com.team7.game1.DarkRomanceGame;
 import com.team7.game1.models.CharacterAnimationState;
+import com.team7.game1.models.NPC;
 import com.team7.game1.models.NPCHero;
 import com.team7.game1.models.PlayerCharacter;
-import com.team7.game1.models.NPC;
-import com.team7.game1.DarkRomanceGame;
+import com.team7.game1.ui.NpcDialogueEntry;
+import com.team7.game1.ui.NpcDialogueLibrary;
 
 public class GameScreen implements Screen {
 
     private static final Color WORLD_COLOR = Color.valueOf("2F4A2CFF");
     private static final Color WORLD_ACCENT = Color.valueOf("405C34FF");
+    private static final String DIALOG_FRAME_TEXTURE_PATH = "ui/dialog/UI_Flat_Frame01a.png";
+    private static final String DIALOG_NAMEPLATE_TEXTURE_PATH = "ui/dialog/UI_Flat_FrameMarker01a.png";
+    private static final String DIALOG_NEXT_BUTTON_TEXTURE_PATH = "ui/dialog/UI_Flat_Button02a_1.png";
+    private static final float DIALOG_X = 90f;
+    private static final float DIALOG_Y = 20f;
+    private static final float DIALOG_WIDTH = DarkRomanceGame.DESIGN_WIDTH - 180f;
+    private static final float DIALOG_HEIGHT = 210f;
+    private static final float DIALOG_PADDING = 26f;
+    private static final float NPC_TALK_DISTANCE = 115f;
+    private static final float DIALOG_PORTRAIT_SIZE = 120f;
+    private static final float DIALOG_NEXT_BUTTON_WIDTH = 140f;
+    private static final float DIALOG_NEXT_BUTTON_HEIGHT = 42f;
+    private static final float DIALOG_NAMEPLATE_HEIGHT = 34f;
 
     private final DarkRomanceGame game;
+    private final GlyphLayout glyphLayout = new GlyphLayout();
+    private final Rectangle nextButtonBounds = new Rectangle();
+    private final Vector2 worldTouchPoint = new Vector2();
     private SpriteBatch batch;
     private FitViewport viewport;
     private Texture pixel;
+    private Texture dialogFrameTexture;
+    private Texture dialogNameplateTexture;
+    private Texture dialogNextButtonTexture;
+    private NinePatch dialogFramePatch;
+    private NpcDialogueLibrary dialogueLibrary;
     private PlayerCharacter player;
     private Array<NPC> npcs;
+    private NPC activeDialogNpc;
+    private int activeDialogLineIndex;
     private MoveDirection lastPressedDirection = MoveDirection.DOWN;
 
     public GameScreen(DarkRomanceGame game) {
@@ -40,6 +71,8 @@ public class GameScreen implements Screen {
         viewport = new FitViewport(DarkRomanceGame.DESIGN_WIDTH, DarkRomanceGame.DESIGN_HEIGHT);
         viewport.update(Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), true);
         pixel = createSolidTexture(Color.WHITE);
+        loadDialogTextures();
+        dialogueLibrary = new NpcDialogueLibrary();
         player = new PlayerCharacter(
             DarkRomanceGame.DESIGN_WIDTH / 2f - 32f,
             DarkRomanceGame.DESIGN_HEIGHT / 2f - 64f
@@ -66,11 +99,13 @@ public class GameScreen implements Screen {
         drawPatrolBounds();
         drawNpcs();
         batch.draw(frame, player.getX(), player.getY(), player.getDrawWidth(), player.getDrawHeight());
+        drawDialog();
         batch.end();
     }
 
     private void update(float delta) {
         updateLastPressedDirection();
+        handleDialogInput();
 
         if (Gdx.input.isKeyJustPressed(Input.Keys.Z)) {
             player.triggerAnimationState(CharacterAnimationState.ATTACK_MAGIC, 0.75f);
@@ -136,6 +171,47 @@ public class GameScreen implements Screen {
         }
     }
 
+    private void handleDialogInput() {
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+            activeDialogNpc = null;
+            activeDialogLineIndex = 0;
+            return;
+        }
+
+        if (activeDialogNpc != null) {
+            if (Gdx.input.isKeyJustPressed(Input.Keys.F)
+                || Gdx.input.isKeyJustPressed(Input.Keys.ENTER)
+                || Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) {
+                advanceDialog();
+                return;
+            }
+
+            if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
+                viewport.unproject(worldTouchPoint.set(Gdx.input.getX(), Gdx.input.getY()));
+                if (nextButtonBounds.contains(worldTouchPoint)) {
+                    advanceDialog();
+                    return;
+                }
+            }
+
+            return;
+        }
+
+        if (!Gdx.input.isKeyJustPressed(Input.Keys.F)) {
+            return;
+        }
+
+        NPC nearestNpc = findNearestNpcWithinTalkDistance();
+        if (nearestNpc != null) {
+            activeDialogNpc = nearestNpc;
+            activeDialogLineIndex = 0;
+            return;
+        }
+
+        activeDialogNpc = null;
+        activeDialogLineIndex = 0;
+    }
+
     private void updateLastPressedDirection() {
         if (Gdx.input.isKeyJustPressed(Input.Keys.A) || Gdx.input.isKeyJustPressed(Input.Keys.LEFT)) {
             lastPressedDirection = MoveDirection.LEFT;
@@ -172,11 +248,183 @@ public class GameScreen implements Screen {
         batch.setColor(Color.WHITE);
     }
 
+    private void drawDialog() {
+        if (activeDialogNpc == null) {
+            return;
+        }
+
+        if (dialogFramePatch != null) {
+            batch.setColor(Color.WHITE);
+            dialogFramePatch.draw(batch, DIALOG_X, DIALOG_Y, DIALOG_WIDTH, DIALOG_HEIGHT);
+        } else {
+            batch.setColor(Color.valueOf("15110FCC"));
+            batch.draw(pixel, DIALOG_X, DIALOG_Y, DIALOG_WIDTH, DIALOG_HEIGHT);
+            batch.setColor(Color.valueOf("BBA58DFF"));
+            batch.draw(pixel, DIALOG_X, DIALOG_Y + DIALOG_HEIGHT - 4f, DIALOG_WIDTH, 4f);
+            batch.draw(pixel, DIALOG_X, DIALOG_Y, DIALOG_WIDTH, 4f);
+            batch.draw(pixel, DIALOG_X, DIALOG_Y, 4f, DIALOG_HEIGHT);
+            batch.draw(pixel, DIALOG_X + DIALOG_WIDTH - 4f, DIALOG_Y, 4f, DIALOG_HEIGHT);
+        }
+
+        BitmapFont titleFont = DarkRomanceGame.skin.getFont("GuildensternSmall");
+        BitmapFont titleShadowFont = DarkRomanceGame.skin.getFont("GuildensternSmallShadow");
+        BitmapFont bodyFont = DarkRomanceGame.skin.getFont("default-font");
+        float portraitX = DIALOG_X + DIALOG_PADDING;
+        float portraitY = DIALOG_Y + DIALOG_HEIGHT - DIALOG_PADDING - DIALOG_PORTRAIT_SIZE;
+        float portraitInset = 8f;
+        float textX = portraitX + DIALOG_PORTRAIT_SIZE + 24f;
+        float titleTopY = DIALOG_Y + DIALOG_HEIGHT - DIALOG_PADDING;
+        float bodyTopY = titleTopY - 54f;
+        float textWidth = DIALOG_WIDTH - (textX - DIALOG_X) - DIALOG_PADDING;
+        float hintY = DIALOG_Y + 24f;
+        NpcDialogueEntry dialogueEntry = dialogueLibrary.getEntry(activeDialogNpc.getDialogueId());
+        String[] dialogLines = dialogueEntry.getLines();
+        String dialogText = dialogLines[Math.min(activeDialogLineIndex, dialogLines.length - 1)];
+        Texture portraitTexture = dialogueLibrary.getPortrait(activeDialogNpc.getDialogueId());
+
+        batch.setColor(Color.valueOf("D8DDE5FF"));
+        batch.draw(pixel, portraitX, portraitY, DIALOG_PORTRAIT_SIZE, DIALOG_PORTRAIT_SIZE);
+        batch.setColor(Color.valueOf("53606FFF"));
+        batch.draw(pixel, portraitX, portraitY + DIALOG_PORTRAIT_SIZE - 4f, DIALOG_PORTRAIT_SIZE, 4f);
+        batch.draw(pixel, portraitX, portraitY, DIALOG_PORTRAIT_SIZE, 4f);
+        batch.draw(pixel, portraitX, portraitY, 4f, DIALOG_PORTRAIT_SIZE);
+        batch.draw(pixel, portraitX + DIALOG_PORTRAIT_SIZE - 4f, portraitY, 4f, DIALOG_PORTRAIT_SIZE);
+        batch.setColor(Color.WHITE);
+        if (portraitTexture != null) {
+            batch.draw(
+                portraitTexture,
+                portraitX + portraitInset,
+                portraitY + portraitInset,
+                DIALOG_PORTRAIT_SIZE - portraitInset * 2f,
+                DIALOG_PORTRAIT_SIZE - portraitInset * 2f
+            );
+        } else {
+            batch.draw(
+                activeDialogNpc.getCurrentFrame(),
+                portraitX + portraitInset,
+                portraitY + portraitInset,
+                DIALOG_PORTRAIT_SIZE - portraitInset * 2f,
+                DIALOG_PORTRAIT_SIZE - portraitInset * 2f
+            );
+        }
+
+        String npcName = dialogueEntry.getName();
+        titleFont.setColor(Color.valueOf("284357FF"));
+        titleShadowFont.setColor(Color.valueOf("E9EDF2FF"));
+        bodyFont.setColor(Color.valueOf("2B2623FF"));
+        glyphLayout.setText(titleFont, npcName);
+        float nameplateWidth = Math.max(190f, glyphLayout.width + 48f);
+        float nameplateX = textX - 8f;
+        float nameplateY = DIALOG_Y + DIALOG_HEIGHT - DIALOG_NAMEPLATE_HEIGHT - 16f;
+        if (dialogNameplateTexture != null) {
+            batch.draw(dialogNameplateTexture, nameplateX, nameplateY, nameplateWidth, DIALOG_NAMEPLATE_HEIGHT);
+        } else {
+            batch.setColor(Color.valueOf("D6DDE5FF"));
+            batch.draw(pixel, nameplateX, nameplateY, nameplateWidth, DIALOG_NAMEPLATE_HEIGHT);
+            batch.setColor(Color.WHITE);
+        }
+
+        float nameTextX = nameplateX + 18f;
+        float nameTextY = nameplateY + 25f;
+        titleShadowFont.draw(batch, npcName, nameTextX + 1f, nameTextY - 1f);
+        titleFont.draw(batch, npcName, nameTextX, nameTextY);
+        bodyFont.draw(batch, dialogText, textX, bodyTopY, textWidth, Align.left, true);
+        glyphLayout.setText(bodyFont, "Esc - close   F / Enter / Space - next");
+        bodyFont.draw(batch, glyphLayout, DIALOG_X + DIALOG_PADDING, hintY);
+
+        float buttonX = DIALOG_X + DIALOG_WIDTH - DIALOG_PADDING - DIALOG_NEXT_BUTTON_WIDTH;
+        float buttonY = DIALOG_Y + 18f;
+        nextButtonBounds.set(buttonX, buttonY, DIALOG_NEXT_BUTTON_WIDTH, DIALOG_NEXT_BUTTON_HEIGHT);
+        if (dialogNextButtonTexture != null) {
+            batch.draw(dialogNextButtonTexture, buttonX, buttonY, DIALOG_NEXT_BUTTON_WIDTH, DIALOG_NEXT_BUTTON_HEIGHT);
+        } else {
+            batch.setColor(Color.valueOf("F4F0E8FF"));
+            batch.draw(pixel, buttonX, buttonY, DIALOG_NEXT_BUTTON_WIDTH, DIALOG_NEXT_BUTTON_HEIGHT);
+            batch.setColor(Color.WHITE);
+        }
+
+        glyphLayout.setText(titleFont, isLastDialogLine() ? "Close" : "Next");
+        titleFont.draw(
+            batch,
+            glyphLayout,
+            buttonX + (DIALOG_NEXT_BUTTON_WIDTH - glyphLayout.width) / 2f,
+            buttonY + DIALOG_NEXT_BUTTON_HEIGHT / 2f + glyphLayout.height / 2f - 4f
+        );
+        batch.setColor(Color.WHITE);
+    }
+
     private void drawPatrolBounds() {
         batch.setColor(Color.valueOf("FFFFFF12"));
         batch.draw(pixel, 120f, 120f, 300f, 160f);
         batch.draw(pixel, 760f, 360f, 320f, 260f);
         batch.setColor(Color.WHITE);
+    }
+
+    private NPC findNearestNpcWithinTalkDistance() {
+        NPC nearestNpc = null;
+        float nearestDistance = NPC_TALK_DISTANCE;
+
+        for (NPC npc : npcs) {
+            float npcCenterX = npc.getX() + npc.getWidth() / 2f;
+            float npcCenterY = npc.getY() + npc.getHeight() / 2f;
+            float distance = playerDistanceTo(npcCenterX, npcCenterY);
+            if (distance <= nearestDistance) {
+                nearestDistance = distance;
+                nearestNpc = npc;
+            }
+        }
+
+        return nearestNpc;
+    }
+
+    private float playerDistanceTo(float x, float y) {
+        float deltaX = player.getCenterX() - x;
+        float deltaY = player.getCenterY() - y;
+        return (float) Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+    }
+
+    private void loadDialogTextures() {
+        if (Gdx.files.internal(DIALOG_FRAME_TEXTURE_PATH).exists()) {
+            dialogFrameTexture = new Texture(Gdx.files.internal(DIALOG_FRAME_TEXTURE_PATH));
+            dialogFramePatch = new NinePatch(new TextureRegion(dialogFrameTexture), 8, 8, 8, 8);
+        } else {
+            Gdx.app.log("GameScreen", "Dialog frame texture not found: " + DIALOG_FRAME_TEXTURE_PATH);
+        }
+
+        if (Gdx.files.internal(DIALOG_NAMEPLATE_TEXTURE_PATH).exists()) {
+            dialogNameplateTexture = new Texture(Gdx.files.internal(DIALOG_NAMEPLATE_TEXTURE_PATH));
+        } else {
+            Gdx.app.log("GameScreen", "Dialog nameplate texture not found: " + DIALOG_NAMEPLATE_TEXTURE_PATH);
+        }
+
+        if (Gdx.files.internal(DIALOG_NEXT_BUTTON_TEXTURE_PATH).exists()) {
+            dialogNextButtonTexture = new Texture(Gdx.files.internal(DIALOG_NEXT_BUTTON_TEXTURE_PATH));
+        } else {
+            Gdx.app.log("GameScreen", "Dialog next button texture not found: " + DIALOG_NEXT_BUTTON_TEXTURE_PATH);
+        }
+    }
+
+    private void advanceDialog() {
+        if (activeDialogNpc == null) {
+            return;
+        }
+
+        if (isLastDialogLine()) {
+            activeDialogNpc = null;
+            activeDialogLineIndex = 0;
+            return;
+        }
+
+        activeDialogLineIndex++;
+    }
+
+    private boolean isLastDialogLine() {
+        if (activeDialogNpc == null) {
+            return true;
+        }
+
+        NpcDialogueEntry dialogueEntry = dialogueLibrary.getEntry(activeDialogNpc.getDialogueId());
+        return activeDialogLineIndex >= dialogueEntry.getLines().length - 1;
     }
 
     private Texture createSolidTexture(Color color) {
@@ -198,6 +446,18 @@ public class GameScreen implements Screen {
     public void dispose() {
         batch.dispose();
         pixel.dispose();
+        if (dialogFrameTexture != null) {
+            dialogFrameTexture.dispose();
+        }
+        if (dialogNameplateTexture != null) {
+            dialogNameplateTexture.dispose();
+        }
+        if (dialogNextButtonTexture != null) {
+            dialogNextButtonTexture.dispose();
+        }
+        if (dialogueLibrary != null) {
+            dialogueLibrary.dispose();
+        }
         player.dispose();
         for (NPC npc : npcs) {
             npc.dispose();

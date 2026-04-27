@@ -96,6 +96,18 @@ public abstract class NPC {
         return animator.getFrame(facing, moving, locomotionTime, actionTime, animationState);
     }
 
+    public String getDialogTitle() {
+        return "NPC";
+    }
+
+    public String getDialogText() {
+        return "Hello there.";
+    }
+
+    public String getDialogueId() {
+        return "default";
+    }
+
     public abstract Color getBaseColor();
 
     protected boolean shouldApproachPlayer(PlayerCharacter player, float playerDistance) {
