@@ -44,7 +44,6 @@ public class GameScreen implements Screen {
     private static final float MAP_SCALE = GameConfig.World.MAP_SCALE;
     private static final String DEFAULT_MAP_PATH = GameConfig.World.DEFAULT_MAP_PATH;
     private static final float NPC_TALK_DISTANCE = 115f;
-    private static final float WAKE_UP_DURATION_SECONDS = 12.5f;
 
     private final DarkRomanceGame game;
     private final GlyphLayout glyphLayout = new GlyphLayout();
@@ -102,7 +101,8 @@ public class GameScreen implements Screen {
         if (playerSpawn != null) {
             player.setBottomLeft(playerSpawn.x, playerSpawn.y);
         }
-        player.triggerAnimationState(CharacterAnimator.AnimationState.WAKE_UP, WAKE_UP_DURATION_SECONDS);
+        float wakeUpDurationSeconds = player.getActionAnimationDuration(CharacterAnimator.AnimationState.WAKE_UP);
+        player.triggerAnimationState(CharacterAnimator.AnimationState.WAKE_UP, wakeUpDurationSeconds);
         characterWindow = new CharacterWindow();
         npcs = new Array<NPC>();
         npcs.add(new NPCHero(220f, 160f, 120f, 120f, 420f, 280f, NPCHero.ROBE_ARCHER));

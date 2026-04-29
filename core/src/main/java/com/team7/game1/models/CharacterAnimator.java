@@ -42,7 +42,7 @@ public class CharacterAnimator {
     private static final float FRAME_DURATION = 0.11f;
     private static final float ACTION_FRAME_DURATION = 0.09f;
     private static final float WAKE_UP_FRAME_DURATION = 0.35f;
-    private static final float WAKE_UP_FIRST_FRAME_EXTRA_SECONDS = 5f;
+    private static final float WAKE_UP_FIRST_FRAME_EXTRA_SECONDS = 3f;
 
     private final String basePath;
     private final String assetPrefix;
@@ -78,6 +78,19 @@ public class CharacterAnimator {
     public float getDrawHeight(FacingDirection facing, boolean moving, float locomotionTime,
                                float actionTime, AnimationState state) {
         return getFrame(facing, moving, locomotionTime, actionTime, state).getRegionHeight() * drawScale;
+    }
+
+    public float getActionDuration(AnimationState state, FacingDirection facing) {
+        if (!state.isActionAnimation() || state == AnimationState.BASE) {
+            return 0f;
+        }
+
+        AnimationPack pack = getPack(state);
+        Animation<TextureRegion> action = pack.getAction(facing);
+        if (action == null) {
+            return 0f;
+        }
+        return action.getAnimationDuration();
     }
 
     public void dispose() {

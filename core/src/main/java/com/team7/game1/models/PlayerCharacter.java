@@ -119,6 +119,10 @@ public class PlayerCharacter {
         return equippedWeapon;
     }
 
+    public float getActionAnimationDuration(CharacterAnimator.AnimationState state) {
+        return animator.getActionDuration(state, facing);
+    }
+
     public void dispose() {
         animator.dispose();
     }
