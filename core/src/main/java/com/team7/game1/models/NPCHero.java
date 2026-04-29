@@ -4,7 +4,7 @@ import com.badlogic.gdx.graphics.Color;
 
 public class NPCHero extends NPC {
 
-    public static final HeroProfile ROBE_ARCHER = new HeroProfile(
+    public static final HeroProfile HERO_PROFILE = new HeroProfile(
         AnimationPreset.DARK_SKINNED,
         CharacterAnimator.AnimationState.ATTACK_BOW,
         0.8f,
@@ -12,7 +12,7 @@ public class NPCHero extends NPC {
         Color.valueOf("C08A4AFF")
     );
 
-    public static final HeroProfile MIXED_METAL_ARCHER = new HeroProfile(
+    public static final HeroProfile GUARDIAN_PROFILE = new HeroProfile(
         AnimationPreset.MIXED_METAL,
         CharacterAnimator.AnimationState.ATTACK_BOW,
         0.9f,
@@ -41,32 +41,32 @@ public class NPCHero extends NPC {
 
     @Override
     public String getDialogTitle() {
-        if (profile == ROBE_ARCHER) {
-            return "Archer";
+        if (profile == HERO_PROFILE) {
+            return "Герой";
         }
-        if (profile == MIXED_METAL_ARCHER) {
-            return "Guardian";
+        if (profile == GUARDIAN_PROFILE) {
+            return "Страж";
         }
-        return "Hero";
+        return "Герой";
     }
 
     @Override
     public String getDialogText() {
-        if (profile == ROBE_ARCHER) {
-            return "Keep your voice down. The woods are listening tonight.";
+        if (profile == HERO_PROFILE) {
+            return "Так ты и есть тот самый темный маг....";
         }
-        if (profile == MIXED_METAL_ARCHER) {
-            return "If you are heading deeper inside, stay ready and do not travel alone.";
+        if (profile == GUARDIAN_PROFILE) {
+            return "Приветствую вас, игрок.";
         }
-        return "Stay alert.";
+        return "Будь начеку.";
     }
 
     @Override
     public String getDialogueId() {
-        if (profile == ROBE_ARCHER) {
-            return "archer";
+        if (profile == HERO_PROFILE) {
+            return "Hero";
         }
-        if (profile == MIXED_METAL_ARCHER) {
+        if (profile == GUARDIAN_PROFILE) {
             return "guardian";
         }
         return "default";
