@@ -8,6 +8,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 import com.kotcrab.vis.ui.VisUI;
+import com.team7.game1.models.PlayerData;
 import com.team7.game1.screens.SplashScreen;
 
 public class DarkRomanceGame extends Game {
@@ -15,6 +16,7 @@ public class DarkRomanceGame extends Game {
     public static final int DESIGN_HEIGHT = 775;
     public static Skin skin;
     private static boolean resizingWindow;
+    private PlayerData currentPlayerData;
 
     @Override
     public void create() {
@@ -82,6 +84,15 @@ public class DarkRomanceGame extends Game {
         skin.add("GuildensternSmall", smallFont, BitmapFont.class);
         skin.add("GuildensternSmallShadow", smallShadowFont, BitmapFont.class);
     }
+
+    public PlayerData getCurrentPlayerData() {
+        return currentPlayerData;
+    }
+
+    public void setCurrentPlayerData(PlayerData currentPlayerData) {
+        this.currentPlayerData = currentPlayerData;
+    }
+
     public static void enforceDesktopAspect(int width, int height) {
         // Защита от рекурсии: если мы уже внутри изменения размера, не делаем ничего
         if (resizingWindow || Gdx.app.getType() != Application.ApplicationType.Desktop) {
@@ -124,4 +135,4 @@ public class DarkRomanceGame extends Game {
         VisUI.dispose();
         super.dispose();
     }
-    }
+}

@@ -27,8 +27,11 @@ import com.team7.game1.models.CharacterAnimationState;
 import com.team7.game1.models.NPC;
 import com.team7.game1.models.NPCHero;
 import com.team7.game1.models.PlayerCharacter;
+import com.team7.game1.models.PlayerData;
+import com.team7.game1.ui.CharacterWindow;
 import com.team7.game1.ui.NpcDialogueEntry;
 import com.team7.game1.ui.NpcDialogueLibrary;
+import com.team7.game1.utils.SaveManager;
 
 public class GameScreen implements Screen {
 
@@ -70,6 +73,8 @@ public class GameScreen implements Screen {
     private MoveDirection lastPressedDirection = MoveDirection.DOWN;
     private float worldWidth = DarkRomanceGame.DESIGN_WIDTH;
     private float worldHeight = DarkRomanceGame.DESIGN_HEIGHT;
+    private PlayerData playerData;
+    private CharacterWindow characterWindow;
 
     public GameScreen(DarkRomanceGame game) {
         this.game = game;
@@ -84,10 +89,16 @@ public class GameScreen implements Screen {
         loadWorldMap();
         loadDialogTextures();
         dialogueLibrary = new NpcDialogueLibrary();
-        player = new PlayerCharacter(
-            worldWidth / 2f - 32f,
-            worldHeight / 2f - 64f
-        );
+        playerData = game.getCurrentPlayerData();
+        if (playerData == null) {
+            playerData = new PlayerData();
+            game.setCurrentPlayerData(playerData);
+        }
+
+        float startX = playerData.getWorldX() > 0f ? playerData.getWorldX() : worldWidth / 2f;
+        float startY = playerData.getWorldY() > 0f ? playerData.getWorldY() : worldHeight / 2f - 64f;
+        player = new PlayerCharacter(startX, startY);
+        characterWindow = new CharacterWindow();
         npcs = new Array<NPC>();
         npcs.add(new NPCHero(220f, 160f, 120f, 120f, 420f, 280f, NPCHero.ROBE_ARCHER));
         npcs.add(new NPCHero(860f, 420f, 760f, 360f, 1080f, 620f, NPCHero.MIXED_METAL_ARCHER));
@@ -118,10 +129,14 @@ public class GameScreen implements Screen {
         drawNpcs();
         batch.draw(frame, player.getX(), player.getY(), player.getDrawWidth(), player.getDrawHeight());
         drawDialog();
+        characterWindow.draw(batch, pixel, viewport, playerData);
         batch.end();
     }
 
     private void update(float delta) {
+        if (Gdx.input.isKeyJustPressed(Input.Keys.C)) {
+            characterWindow.toggle();
+        }
         updateLastPressedDirection();
         handleDialogInput();
 
@@ -183,7 +198,13 @@ public class GameScreen implements Screen {
             }
         }
 
+        if (characterWindow.isVisible()) {
+            moveX = 0f;
+            moveY = 0f;
+        }
+
         player.update(delta, moveX, moveY, worldWidth, worldHeight);
+        playerData.setWorldPosition(player.getCenterX(), player.getY());
         for (NPC npc : npcs) {
             npc.update(delta, player);
         }
@@ -505,6 +526,7 @@ public class GameScreen implements Screen {
 
     @Override
     public void dispose() {
+        SaveManager.savePlayer(playerData);
         batch.dispose();
         pixel.dispose();
         if (dialogFrameTexture != null) {
@@ -525,13 +547,19 @@ public class GameScreen implements Screen {
         if (tiledMap != null) {
             tiledMap.dispose();
         }
+        if (characterWindow != null) {
+            characterWindow.dispose();
+        }
         player.dispose();
         for (NPC npc : npcs) {
             npc.dispose();
         }
     }
 
-    @Override public void hide() {}
+    @Override
+    public void hide() {
+        SaveManager.savePlayer(playerData);
+    }
     @Override public void pause() {}
     @Override public void resume() {}
 
