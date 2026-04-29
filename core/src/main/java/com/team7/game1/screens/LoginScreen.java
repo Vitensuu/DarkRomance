@@ -24,9 +24,11 @@ import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.team7.game1.DarkRomanceGame;
+import com.team7.game1.models.PlayerData;
 import com.team7.game1.network.NetworkCallback;
 import com.team7.game1.network.NetworkClient;
 import com.team7.game1.utils.Constants;
+import com.team7.game1.utils.SaveManager;
 
 public class LoginScreen implements Screen {
 
@@ -302,6 +304,9 @@ public class LoginScreen implements Screen {
                     updateInteractiveState();
 
                     if ("OK".equals(response)) {
+                        PlayerData playerData = SaveManager.loadOrCreatePlayer(username);
+                        playerData.setUsername(username);
+                        game.setCurrentPlayerData(playerData);
                         game.setScreen(new IntroScreen(game));
                     } else {
                         closeConfirm();
