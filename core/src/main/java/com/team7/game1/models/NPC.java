@@ -4,7 +4,7 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.math.Vector2;
 
-public abstract class NPC {
+public abstract class NPC implements Interactable {
 
     private static final float ARRIVAL_EPSILON = 4f;
 
@@ -110,13 +110,39 @@ public abstract class NPC {
 
     public abstract Color getBaseColor();
 
+    @Override
+    public boolean canInteract(PlayerCharacter player) {
+        if (player == null) {
+            return false;
+        }
+        return distanceTo(player) <= getInteractionDistance();
+    }
+
+    @Override
+    public void interact(PlayerCharacter player) {
+        onInteract(player);
+    }
+
+    @Override
+    public String getInteractionPrompt() {
+        return "Talk";
+    }
+
     protected boolean shouldApproachPlayer(PlayerCharacter player, float playerDistance) {
         return playerDistance <= detectionRadius;
+    }
+
+    protected void onInteract(PlayerCharacter player) {
+        onReachPlayer(player);
     }
 
     protected void onReachPlayer(PlayerCharacter player) {
         // By default, common NPCs just come closer.
         // Specific NPCs can override this to talk, start quests, attack, etc.
+    }
+
+    protected float getInteractionDistance() {
+        return Math.max(interactionRadius, 115f);
     }
 
     protected void triggerAnimationState(CharacterAnimationState newState, float durationSeconds) {
@@ -131,6 +157,10 @@ public abstract class NPC {
 
     public void dispose() {
         animator.dispose();
+    }
+
+    private float distanceTo(PlayerCharacter player) {
+        return position.dst(player.getCenterX(), player.getCenterY());
     }
 
     private void updateAnimationState(float delta) {

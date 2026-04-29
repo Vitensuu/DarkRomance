@@ -1,0 +1,28 @@
+{
+"username": "Dauletzhan",
+"health": 100,
+"maxHealth": 100,
+"level": 1,
+"worldX": 957.1344,
+"worldY": 136.94394,
+"inventory": [
+	{
+		"id": "traveler_bow",
+		"name": "Traveler's Bow",
+		"type": "WEAPON",
+		"description": "A simple bow carried by the hero."
+	},
+	{
+		"id": "forest_key",
+		"name": "Old Forest Key",
+		"type": "QUEST",
+		"description": "A worn key found near the forest path."
+	},
+	{
+		"id": "healing_herb",
+		"name": "Healing Herb",
+		"type": "CONSUMABLE",
+		"description": "A fresh herb with a calming scent."
+	}
+]
+}
