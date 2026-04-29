@@ -1,22 +1,27 @@
 package com.team7.game1.screens;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
-import com.badlogic.gdx.scenes.scene2d.InputEvent;
-import com.badlogic.gdx.scenes.scene2d.Stage;
-import com.badlogic.gdx.scenes.scene2d.ui.Label;
-import com.badlogic.gdx.scenes.scene2d.ui.Table;
-import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
-import com.badlogic.gdx.utils.Align;
-import com.badlogic.gdx.utils.viewport.ScreenViewport;
-import com.kotcrab.vis.ui.widget.VisTextButton;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.GlyphLayout;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.team7.game1.DarkRomanceGame;
-import com.team7.game1.models.PlayerData;
 
 public class IntroScreen implements Screen {
+
+    private static final String INTRO_BACKGROUND_PATH = "backgraund/IntroScreenBackground.jpg";
+
     private final DarkRomanceGame game;
-    private Stage stage;
+    private final GlyphLayout glyphLayout = new GlyphLayout();
+
+    private SpriteBatch batch;
+    private FitViewport viewport;
+    private Texture background;
 
     public IntroScreen(DarkRomanceGame game) {
         this.game = game;
@@ -24,53 +29,49 @@ public class IntroScreen implements Screen {
 
     @Override
     public void show() {
-        stage = new Stage(new ScreenViewport());
-        Gdx.input.setInputProcessor(stage);
-
-        Table table = new Table();
-        table.setFillParent(true);
-        stage.addActor(table);
-
-        PlayerData playerData = game.getCurrentPlayerData();
-        String playerName = playerData != null ? playerData.getUsername() : "Hero";
-
-        Label introText = new Label(
-            playerName + ", you wake up in a dark forest...\n" +
-                "Your task is to find the way out and uncover the secret.\n\n" +
-                "Press 'Play' to begin your journey.",
-            DarkRomanceGame.skin
-        );
-        introText.setWrap(true);
-        introText.setAlignment(Align.center);
-
-        VisTextButton playButton = new VisTextButton("Play");
-        playButton.addListener(new ClickListener() {
-            @Override
-            public void clicked(InputEvent event, float x, float y) {
-                game.setScreen(new GameScreen(game));
-            }
-        });
-
-        table.add(introText).width(600).padBottom(40).row();
-        table.add(playButton).width(200);
+        batch = new SpriteBatch();
+        viewport = new FitViewport(DarkRomanceGame.DESIGN_WIDTH, DarkRomanceGame.DESIGN_HEIGHT);
+        viewport.update(Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), true);
+        background = new Texture(Gdx.files.internal(INTRO_BACKGROUND_PATH));
     }
 
     @Override
     public void render(float delta) {
-        Gdx.gl.glClearColor(0, 0, 0, 1);
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
+            game.setScreen(new GameScreen(game));
+            return;
+        }
+
+        Gdx.gl.glClearColor(0f, 0f, 0f, 1f);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
-        stage.act(delta);
-        stage.draw();
+
+        viewport.apply();
+        batch.setProjectionMatrix(viewport.getCamera().combined);
+        batch.begin();
+        batch.setColor(Color.WHITE);
+        batch.draw(background, 0, 0, DarkRomanceGame.DESIGN_WIDTH, DarkRomanceGame.DESIGN_HEIGHT);
+
+        BitmapFont hintFont = DarkRomanceGame.skin.getFont("default-font");
+        hintFont.setColor(Color.valueOf("E8DEC9FF"));
+        glyphLayout.setText(hintFont, "Press Enter to continue");
+        hintFont.draw(
+            batch,
+            glyphLayout,
+            (DarkRomanceGame.DESIGN_WIDTH - glyphLayout.width) * 0.5f,
+            42f
+        );
+        batch.end();
     }
 
     @Override
     public void resize(int width, int height) {
-        stage.getViewport().update(width, height, true);
+        viewport.update(width, height, true);
     }
 
     @Override
     public void dispose() {
-        stage.dispose();
+        batch.dispose();
+        background.dispose();
     }
 
     @Override public void hide() {}

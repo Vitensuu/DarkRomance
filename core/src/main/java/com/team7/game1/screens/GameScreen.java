@@ -3,6 +3,7 @@ package com.team7.game1.screens;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
+import com.badlogic.gdx.audio.Music;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
@@ -37,6 +38,7 @@ import com.team7.game1.world.tiled.TriggerService;
 
 public class GameScreen implements Screen {
 
+    private static final String GAME_MUSIC_PATH = "music/game_theme.mp3";
     private static final Color WORLD_COLOR = Color.valueOf("2F4A2CFF");
     private static final Color WORLD_ACCENT = Color.valueOf("405C34FF");
     private static final float MAP_SCALE = GameConfig.World.MAP_SCALE;
@@ -53,6 +55,7 @@ public class GameScreen implements Screen {
     private final MapTransitionService mapTransitionService = new MapTransitionService();
     private final TriggerActionRegistry triggerActionRegistry = new TriggerActionRegistry(mapTransitionService);
     private SpriteBatch batch;
+    private Music backgroundMusic;
     private FitViewport viewport;
     private Texture pixel;
     private TiledWorld tiledWorld;
@@ -81,6 +84,7 @@ public class GameScreen implements Screen {
     @Override
     public void show() {
         batch = new SpriteBatch();
+        startBackgroundMusic();
         viewport = new FitViewport(DarkRomanceGame.DESIGN_WIDTH, DarkRomanceGame.DESIGN_HEIGHT);
         viewport.update(Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), true);
         pixel = createSolidTexture(Color.WHITE);
@@ -576,6 +580,7 @@ public class GameScreen implements Screen {
 
     @Override
     public void dispose() {
+        stopBackgroundMusic();
         SaveManager.savePlayer(playerData);
         batch.dispose();
         pixel.dispose();
@@ -605,10 +610,32 @@ public class GameScreen implements Screen {
 
     @Override
     public void hide() {
+        stopBackgroundMusic();
         SaveManager.savePlayer(playerData);
     }
     @Override public void pause() {}
     @Override public void resume() {}
+
+    private void startBackgroundMusic() {
+        if (backgroundMusic != null || !Gdx.files.internal(GAME_MUSIC_PATH).exists()) {
+            return;
+        }
+
+        backgroundMusic = Gdx.audio.newMusic(Gdx.files.internal(GAME_MUSIC_PATH));
+        backgroundMusic.setLooping(true);
+        backgroundMusic.setVolume(0.32f);
+        backgroundMusic.play();
+    }
+
+    private void stopBackgroundMusic() {
+        if (backgroundMusic == null) {
+            return;
+        }
+
+        backgroundMusic.stop();
+        backgroundMusic.dispose();
+        backgroundMusic = null;
+    }
 
     private enum MoveDirection {
         LEFT,

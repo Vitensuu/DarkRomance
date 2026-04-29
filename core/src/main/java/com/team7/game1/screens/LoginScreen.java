@@ -2,6 +2,7 @@ package com.team7.game1.screens;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Screen;
+import com.badlogic.gdx.audio.Music;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Pixmap;
@@ -32,6 +33,9 @@ import com.team7.game1.utils.SaveManager;
 
 public class LoginScreen implements Screen {
 
+    private static final String LOGIN_MUSIC_PATH = "music/login_theme.mp3";
+    private static final String LOGIN_BACKGROUND_PATH = "backgraund/LoginScreenStatue.jpg";
+
     private final DarkRomanceGame game;
     private final NetworkClient networkClient;
 
@@ -42,6 +46,7 @@ public class LoginScreen implements Screen {
     private Texture transparentPixel;
     private Texture namePanelTexture;
     private Texture confirmPanelTexture;
+    private Music backgroundMusic;
 
     private Table entryTable;
     private Container<Table> confirmContainer;
@@ -63,11 +68,17 @@ public class LoginScreen implements Screen {
     public void show() {
         stage = new Stage(new FitViewport(DarkRomanceGame.DESIGN_WIDTH, DarkRomanceGame.DESIGN_HEIGHT));
         batch = new SpriteBatch();
-        background = new Texture(Gdx.files.internal("backgraund/LoginScreenBackgraund.png"));
+        background = new Texture(Gdx.files.internal(LOGIN_BACKGROUND_PATH));
         overlayPixel = createSolidTexture(Color.valueOf("FFFFFFFF"));
         transparentPixel = createSolidTexture(Color.valueOf("00000000"));
         namePanelTexture = createNamePanelTexture(512, 120, 10, 0.3f, 0f);
         confirmPanelTexture = createNamePanelTexture(720, 388, 10, 0.3f, 0f);
+        if (Gdx.files.internal(LOGIN_MUSIC_PATH).exists()) {
+            backgroundMusic = Gdx.audio.newMusic(Gdx.files.internal(LOGIN_MUSIC_PATH));
+            backgroundMusic.setLooping(true);
+            backgroundMusic.setVolume(0.35f);
+            backgroundMusic.play();
+        }
 
         buildUi();
         stage.getViewport().update(Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), true);
@@ -416,6 +427,7 @@ public class LoginScreen implements Screen {
 
     @Override
     public void dispose() {
+        stopBackgroundMusic();
         stage.dispose();
         batch.dispose();
         background.dispose();
@@ -426,9 +438,21 @@ public class LoginScreen implements Screen {
         networkClient.disconnect();
     }
 
-    @Override public void hide() {}
+    @Override
+    public void hide() {
+        stopBackgroundMusic();
+    }
+
     @Override public void pause() {}
     @Override public void resume() {}
+
+    private void stopBackgroundMusic() {
+        if (backgroundMusic != null) {
+            backgroundMusic.stop();
+            backgroundMusic.dispose();
+            backgroundMusic = null;
+        }
+    }
 
     private interface ClickAction {
         void run(Actor actor);
