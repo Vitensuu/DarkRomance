@@ -27,6 +27,7 @@ import com.team7.game1.models.NPC;
 import com.team7.game1.models.NPCHero;
 import com.team7.game1.models.PlayerCharacter;
 import com.team7.game1.models.PlayerData;
+import com.team7.game1.models.VillagerNPC;
 import com.team7.game1.ui.CharacterWindow;
 import com.team7.game1.ui.NpcDialogueEntry;
 import com.team7.game1.ui.NpcDialogueLibrary;
@@ -44,6 +45,14 @@ public class GameScreen implements Screen {
     private static final float MAP_SCALE = GameConfig.World.MAP_SCALE;
     private static final String DEFAULT_MAP_PATH = GameConfig.World.DEFAULT_MAP_PATH;
     private static final float NPC_TALK_DISTANCE = 115f;
+    private static final float HERO_CAMP_MIN_X = 4860f;
+    private static final float HERO_CAMP_MIN_Y = 4760f;
+    private static final float HERO_CAMP_MAX_X = 5680f;
+    private static final float HERO_CAMP_MAX_Y = 5560f;
+    private static final float VILLAGER_BETWEEN_MIN_X = 3320f;
+    private static final float VILLAGER_BETWEEN_MIN_Y = 5890f;
+    private static final float VILLAGER_BETWEEN_MAX_X = 3750f;
+    private static final float VILLAGER_BETWEEN_MAX_Y = 6230f;
 
     private final DarkRomanceGame game;
     private final GlyphLayout glyphLayout = new GlyphLayout();
@@ -105,8 +114,27 @@ public class GameScreen implements Screen {
         player.triggerAnimationState(CharacterAnimator.AnimationState.WAKE_UP, wakeUpDurationSeconds);
         characterWindow = new CharacterWindow();
         npcs = new Array<NPC>();
-        npcs.add(new NPCHero(220f, 160f, 120f, 120f, 420f, 280f, NPCHero.ROBE_ARCHER));
-        npcs.add(new NPCHero(860f, 420f, 760f, 360f, 1080f, 620f, NPCHero.MIXED_METAL_ARCHER));
+        npcs.add(
+            new NPCHero(
+                (HERO_CAMP_MIN_X + HERO_CAMP_MAX_X) * 0.5f,
+                (HERO_CAMP_MIN_Y + HERO_CAMP_MAX_Y) * 0.5f,
+                HERO_CAMP_MIN_X,
+                HERO_CAMP_MIN_Y,
+                HERO_CAMP_MAX_X,
+                HERO_CAMP_MAX_Y,
+                NPCHero.ROBE_ARCHER
+            )
+        );
+        VillagerNPC villagerNpc = new VillagerNPC(
+            (VILLAGER_BETWEEN_MIN_X + VILLAGER_BETWEEN_MAX_X) * 0.5f,
+            (VILLAGER_BETWEEN_MIN_Y + VILLAGER_BETWEEN_MAX_Y) * 0.5f,
+            VILLAGER_BETWEEN_MIN_X,
+            VILLAGER_BETWEEN_MIN_Y,
+            VILLAGER_BETWEEN_MAX_X,
+            VILLAGER_BETWEEN_MAX_Y
+        );
+        villagerNpc.setPlayerName(playerData.getUsername());
+        npcs.add(villagerNpc);
     }
 
     @Override
@@ -488,8 +516,20 @@ public class GameScreen implements Screen {
 
     private void drawPatrolBounds() {
         batch.setColor(Color.valueOf("FFFFFF12"));
-        batch.draw(pixel, 120f, 120f, 300f, 160f);
-        batch.draw(pixel, 760f, 360f, 320f, 260f);
+        batch.draw(
+            pixel,
+            HERO_CAMP_MIN_X,
+            HERO_CAMP_MIN_Y,
+            HERO_CAMP_MAX_X - HERO_CAMP_MIN_X,
+            HERO_CAMP_MAX_Y - HERO_CAMP_MIN_Y
+        );
+        batch.draw(
+            pixel,
+            VILLAGER_BETWEEN_MIN_X,
+            VILLAGER_BETWEEN_MIN_Y,
+            VILLAGER_BETWEEN_MAX_X - VILLAGER_BETWEEN_MIN_X,
+            VILLAGER_BETWEEN_MAX_Y - VILLAGER_BETWEEN_MIN_Y
+        );
         batch.setColor(Color.WHITE);
     }
 
