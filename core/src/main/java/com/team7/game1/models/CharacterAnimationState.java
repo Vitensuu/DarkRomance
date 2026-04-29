@@ -2,6 +2,7 @@ package com.team7.game1.models;
 
 public enum CharacterAnimationState {
     BASE("", false, true, 0),
+    WAKE_UP("wakeup", true, false, 6),
     ATTACK_MAGIC("magic", true, false, 8),
     ATTACK_BOW("bow", true, false, 8);
 

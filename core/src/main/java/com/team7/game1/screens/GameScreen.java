@@ -13,7 +13,12 @@ import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.NinePatch;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.maps.MapGroupLayer;
+import com.badlogic.gdx.maps.MapLayer;
+import com.badlogic.gdx.maps.MapLayers;
+import com.badlogic.gdx.maps.MapObject;
 import com.badlogic.gdx.maps.tiled.TiledMap;
+import com.badlogic.gdx.maps.tiled.objects.TiledMapTileMapObject;
 import com.badlogic.gdx.maps.tiled.TmxMapLoader;
 import com.badlogic.gdx.maps.tiled.renderers.OrthogonalTiledMapRenderer;
 import com.badlogic.gdx.math.MathUtils;
@@ -24,7 +29,6 @@ import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.team7.game1.DarkRomanceGame;
 import com.team7.game1.models.CharacterAnimationState;
-import com.team7.game1.models.Interactable;
 import com.team7.game1.models.NPC;
 import com.team7.game1.models.NPCHero;
 import com.team7.game1.models.PlayerCharacter;
@@ -47,6 +51,8 @@ public class GameScreen implements Screen {
     private static final float DIALOG_WIDTH = DarkRomanceGame.DESIGN_WIDTH - 180f;
     private static final float DIALOG_HEIGHT = 210f;
     private static final float DIALOG_PADDING = 26f;
+    private static final float NPC_TALK_DISTANCE = 115f;
+    private static final float WAKE_UP_DURATION_SECONDS = 12.5f;
     private static final float DIALOG_PORTRAIT_SIZE = 120f;
     private static final float DIALOG_NEXT_BUTTON_WIDTH = 140f;
     private static final float DIALOG_NEXT_BUTTON_HEIGHT = 42f;
@@ -75,6 +81,7 @@ public class GameScreen implements Screen {
     private float worldHeight = DarkRomanceGame.DESIGN_HEIGHT;
     private PlayerData playerData;
     private CharacterWindow characterWindow;
+    private boolean startSequenceActive = true;
 
     public GameScreen(DarkRomanceGame game) {
         this.game = game;
@@ -95,9 +102,10 @@ public class GameScreen implements Screen {
             game.setCurrentPlayerData(playerData);
         }
 
-        float startX = playerData.getWorldX() > 0f ? playerData.getWorldX() : worldWidth / 2f;
-        float startY = playerData.getWorldY() > 0f ? playerData.getWorldY() : worldHeight / 2f - 64f;
-        player = new PlayerCharacter(startX, startY);
+        player = new PlayerCharacter(worldWidth / 2f, worldHeight / 2f - 64f);
+        spawnPlayerAtStartZone();
+        playerData.setWorldPosition(player.getCenterX(), player.getY());
+        player.triggerAnimationState(CharacterAnimationState.WAKE_UP, WAKE_UP_DURATION_SECONDS);
         characterWindow = new CharacterWindow();
         npcs = new Array<NPC>();
         npcs.add(new NPCHero(220f, 160f, 120f, 120f, 420f, 280f, NPCHero.ROBE_ARCHER));
@@ -119,6 +127,7 @@ public class GameScreen implements Screen {
         }
         batch.setProjectionMatrix(viewport.getCamera().combined);
         batch.begin();
+        drawTileObjectsFromObjectLayers();
         if (mapRenderer == null) {
             drawGround();
         }
@@ -133,9 +142,69 @@ public class GameScreen implements Screen {
         batch.end();
     }
 
+    private void drawTileObjectsFromObjectLayers() {
+        if (tiledMap == null) {
+            return;
+        }
+        drawLayerTileObjectsRecursive(tiledMap.getLayers(), 0f, 0f);
+    }
+
+    private void drawLayerTileObjectsRecursive(MapLayers layers, float parentOffsetX, float parentOffsetY) {
+        for (MapLayer layer : layers) {
+            if (!layer.isVisible()) {
+                continue;
+            }
+
+            float layerOffsetX = parentOffsetX + layer.getOffsetX();
+            float layerOffsetY = parentOffsetY + layer.getOffsetY();
+
+            if (layer instanceof MapGroupLayer) {
+                drawLayerTileObjectsRecursive(((MapGroupLayer) layer).getLayers(), layerOffsetX, layerOffsetY);
+                continue;
+            }
+
+            for (MapObject object : layer.getObjects()) {
+                if (!(object instanceof TiledMapTileMapObject)) {
+                    continue;
+                }
+
+                TiledMapTileMapObject tileObject = (TiledMapTileMapObject) object;
+                if (tileObject.getTile() == null || tileObject.getTile().getTextureRegion() == null) {
+                    continue;
+                }
+
+                TextureRegion region = tileObject.getTile().getTextureRegion();
+                float drawX = (tileObject.getX() + layerOffsetX) * MAP_SCALE;
+                float drawY = (tileObject.getY() + layerOffsetY) * MAP_SCALE;
+                float drawWidth = region.getRegionWidth() * MAP_SCALE;
+                float drawHeight = region.getRegionHeight() * MAP_SCALE;
+
+                batch.draw(
+                    region,
+                    drawX,
+                    drawY,
+                    drawWidth * 0.5f,
+                    drawHeight * 0.5f,
+                    drawWidth,
+                    drawHeight,
+                    tileObject.getScaleX(),
+                    tileObject.getScaleY(),
+                    tileObject.getRotation()
+                );
+            }
+        }
+    }
+
     private void update(float delta) {
         if (Gdx.input.isKeyJustPressed(Input.Keys.C)) {
             characterWindow.toggle();
+        }
+        if (startSequenceActive) {
+            if (!player.isAnimationStateActive(CharacterAnimationState.WAKE_UP)) {
+                startSequenceActive = false;
+            }
+            player.update(delta, 0f, 0f, worldWidth, worldHeight);
+            return;
         }
         updateLastPressedDirection();
         handleDialogInput();
@@ -258,10 +327,9 @@ public class GameScreen implements Screen {
             return;
         }
 
-        Interactable nearestInteractable = findNearestInteractable();
-        if (nearestInteractable instanceof NPC) {
-            nearestInteractable.interact(player);
-            activeDialogNpc = (NPC) nearestInteractable;
+        NPC nearestNpc = findNearestNpcWithinTalkDistance();
+        if (nearestNpc != null) {
+            activeDialogNpc = nearestNpc;
             activeDialogLineIndex = 0;
             return;
         }
@@ -422,9 +490,9 @@ public class GameScreen implements Screen {
         batch.setColor(Color.WHITE);
     }
 
-    private Interactable findNearestInteractable() {
-        Interactable nearestInteractable = null;
-        float nearestDistance = Float.MAX_VALUE;
+    private NPC findNearestNpcWithinTalkDistance() {
+        NPC nearestNpc = null;
+        float nearestDistance = NPC_TALK_DISTANCE;
 
         for (NPC npc : npcs) {
             if (!npc.canInteract(player)) {
@@ -433,13 +501,13 @@ public class GameScreen implements Screen {
             float npcCenterX = npc.getX() + npc.getWidth() / 2f;
             float npcCenterY = npc.getY() + npc.getHeight() / 2f;
             float distance = playerDistanceTo(npcCenterX, npcCenterY);
-            if (distance < nearestDistance) {
+            if (distance <= nearestDistance) {
                 nearestDistance = distance;
-                nearestInteractable = npc;
+                nearestNpc = npc;
             }
         }
 
-        return nearestInteractable;
+        return nearestNpc;
     }
 
     private float playerDistanceTo(float x, float y) {
@@ -450,7 +518,7 @@ public class GameScreen implements Screen {
 
     private void loadWorldMap() {
         try {
-            tiledMap = new TmxMapLoader().load("maps/map oop.tmx");
+            tiledMap = new TmxMapLoader().load("maps/Main_map.tmx");
             mapRenderer = new OrthogonalTiledMapRenderer(tiledMap, MAP_SCALE, batch);
             Integer mapTilesWide = tiledMap.getProperties().get("width", Integer.class);
             Integer mapTilesHigh = tiledMap.getProperties().get("height", Integer.class);
@@ -461,12 +529,101 @@ public class GameScreen implements Screen {
                 worldHeight = mapTilesHigh * tileHeight * MAP_SCALE;
             }
         } catch (Exception exception) {
-            Gdx.app.error("GameScreen", "Failed to load map maps/map oop.tmx", exception);
+            Gdx.app.error("GameScreen", "Failed to load map maps/Main_map.tmx", exception);
             tiledMap = null;
             mapRenderer = null;
             worldWidth = DarkRomanceGame.DESIGN_WIDTH;
             worldHeight = DarkRomanceGame.DESIGN_HEIGHT;
         }
+    }
+
+    private void spawnPlayerAtStartZone() {
+        if (tiledMap == null) {
+            return;
+        }
+
+        float[] bounds = findStartBounds(tiledMap.getLayers());
+        if (bounds == null) {
+            return;
+        }
+
+        float spawnX = (bounds[0] + bounds[2]) * 0.5f * MAP_SCALE - player.getDrawWidth() * 0.5f;
+        float spawnY = (bounds[1] + bounds[3]) * 0.5f * MAP_SCALE - player.getDrawHeight() * 0.5f;
+        player.setBottomLeft(spawnX, spawnY);
+    }
+
+    private float[] findStartBounds(Iterable<MapLayer> layers) {
+        for (MapLayer layer : layers) {
+            if (!(layer instanceof MapGroupLayer)) {
+                continue;
+            }
+
+            MapGroupLayer group = (MapGroupLayer) layer;
+            String groupName = group.getName() == null ? "" : group.getName().toLowerCase();
+            if ("start".equals(groupName)) {
+                return findObjectLayerBounds(group.getLayers(), "object");
+            }
+
+            float[] nested = findStartBounds(group.getLayers());
+            if (nested != null) {
+                return nested;
+            }
+        }
+        return null;
+    }
+
+    private float[] findObjectLayerBounds(Iterable<MapLayer> layers, String layerName) {
+        String targetName = layerName.toLowerCase();
+        for (MapLayer layer : layers) {
+            String name = layer.getName() == null ? "" : layer.getName().toLowerCase();
+            if (!targetName.equals(name)) {
+                continue;
+            }
+
+            float minX = Float.MAX_VALUE;
+            float minY = Float.MAX_VALUE;
+            float maxX = -Float.MAX_VALUE;
+            float maxY = -Float.MAX_VALUE;
+            boolean found = false;
+
+            for (MapObject object : layer.getObjects()) {
+                float x = readFloatProperty(object, "x");
+                float y = readFloatProperty(object, "y");
+                float width = readFloatProperty(object, "width");
+                float height = readFloatProperty(object, "height");
+                minX = Math.min(minX, x);
+                minY = Math.min(minY, y - height);
+                maxX = Math.max(maxX, x + width);
+                maxY = Math.max(maxY, y);
+                found = true;
+            }
+
+            if (found) {
+                return new float[] { minX, minY, maxX, maxY };
+            }
+        }
+        return null;
+    }
+
+    private float readFloatProperty(MapObject object, String key) {
+        Object value = object.getProperties().get(key);
+        if (value instanceof Float) {
+            return (Float) value;
+        }
+        if (value instanceof Integer) {
+            return (Integer) value;
+        }
+        if (value instanceof Double) {
+            return ((Double) value).floatValue();
+        }
+        if (value instanceof String) {
+            try {
+                return Float.parseFloat((String) value);
+            } catch (NumberFormatException ignored) {
+                return 0f;
+            }
+        }
+        return 0f;
     }
 
     private void loadDialogTextures() {

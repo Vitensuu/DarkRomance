@@ -12,6 +12,8 @@ public class CharacterAnimator {
 
     private static final float FRAME_DURATION = 0.11f;
     private static final float ACTION_FRAME_DURATION = 0.09f;
+    private static final float WAKE_UP_FRAME_DURATION = 0.35f;
+    private static final float WAKE_UP_FIRST_FRAME_EXTRA_SECONDS = 5f;
 
     private final String basePath;
     private final String assetPrefix;
@@ -86,12 +88,38 @@ public class CharacterAnimator {
             }
 
             pack.copyFrom(basePack, facing);
+            if (state == CharacterAnimationState.WAKE_UP) {
+                loadWakeUpAnimation(pack, facing);
+                continue;
+            }
             if (folder != null) {
                 loadActionAnimationIfPresent(pack, facing, state, folder, assetBaseName);
             }
         }
 
         return pack;
+    }
+
+    private void loadWakeUpAnimation(AnimationPack pack, FacingDirection facing) {
+        String wakeupFolder = basePath + "wakeup/";
+        int frameCount = countSequentialFrames(wakeupFolder, "wakeup", 32);
+        if (frameCount == 0) {
+            return;
+        }
+        int extraFirstFrameCopies = Math.max(0, (int) Math.ceil(WAKE_UP_FIRST_FRAME_EXTRA_SECONDS / WAKE_UP_FRAME_DURATION));
+        TextureRegion[] actionFrames = new TextureRegion[frameCount + extraFirstFrameCopies];
+        for (int i = 0; i < frameCount; i++) {
+            int reversedIndex = frameCount - i;
+            TextureRegion frame = getOrLoadRegion(wakeupFolder + "wakeup_" + reversedIndex + ".png");
+            if (i == 0) {
+                for (int copy = 0; copy <= extraFirstFrameCopies; copy++) {
+                    actionFrames[copy] = frame;
+                }
+                continue;
+            }
+            actionFrames[extraFirstFrameCopies + i] = frame;
+        }
+        pack.putAction(facing, new Animation<TextureRegion>(WAKE_UP_FRAME_DURATION, actionFrames));
     }
 
     private void loadBaseLocomotion(AnimationPack pack, FacingDirection facing, String folder,

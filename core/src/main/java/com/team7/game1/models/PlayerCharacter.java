@@ -90,6 +90,10 @@ public class PlayerCharacter {
         actionTime = 0f;
     }
 
+    public boolean isAnimationStateActive(CharacterAnimationState state) {
+        return animationState == state;
+    }
+
     public void dispose() {
         animator.dispose();
     }
