@@ -1,6 +1,7 @@
 package com.team7.game1.models;
 
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 
 public class PlayerCharacter {
@@ -69,6 +70,20 @@ public class PlayerCharacter {
 
     public float getCenterY() {
         return position.y + getDrawHeight() / 2f;
+    }
+
+    public float getSpeed() {
+        return speed;
+    }
+
+    public Rectangle getCollisionBounds(Rectangle outBounds) {
+        outBounds.set(getX(), getY(), getDrawWidth(), getDrawHeight());
+        return outBounds;
+    }
+
+    public Rectangle getCollisionBoundsAt(float bottomLeftX, float bottomLeftY, Rectangle outBounds) {
+        outBounds.set(bottomLeftX, bottomLeftY, getDrawWidth(), getDrawHeight());
+        return outBounds;
     }
 
     public void setBottomLeft(float x, float y) {

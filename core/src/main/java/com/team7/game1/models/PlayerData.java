@@ -17,7 +17,10 @@ public class PlayerData {
     private int coins;
     private float worldX;
     private float worldY;
+    private String currentMapPath = "maps/Main_map.tmx";
+    private String activeSpawnMarker;
     private final List<Item> inventory = new ArrayList<Item>();
+    private final List<String> visitedMapPaths = new ArrayList<String>();
 
     public PlayerData() {
         this("Player");
@@ -100,6 +103,62 @@ public class PlayerData {
     public void setWorldPosition(float worldX, float worldY) {
         this.worldX = worldX;
         this.worldY = worldY;
+    }
+
+    public String getCurrentMapPath() {
+        return currentMapPath;
+    }
+
+    public void setCurrentMapPath(String currentMapPath) {
+        if (currentMapPath == null || currentMapPath.trim().isEmpty()) {
+            return;
+        }
+        this.currentMapPath = currentMapPath.trim();
+        markMapVisited(this.currentMapPath);
+    }
+
+    public String getActiveSpawnMarker() {
+        return activeSpawnMarker;
+    }
+
+    public void setActiveSpawnMarker(String activeSpawnMarker) {
+        if (activeSpawnMarker == null || activeSpawnMarker.trim().isEmpty()) {
+            this.activeSpawnMarker = null;
+            return;
+        }
+        this.activeSpawnMarker = activeSpawnMarker.trim();
+    }
+
+    public List<String> getVisitedMapPaths() {
+        return Collections.unmodifiableList(visitedMapPaths);
+    }
+
+    public void setVisitedMapPaths(List<String> mapPaths) {
+        visitedMapPaths.clear();
+        if (mapPaths == null) {
+            return;
+        }
+        for (String mapPath : mapPaths) {
+            if (mapPath == null) {
+                continue;
+            }
+            String normalized = mapPath.trim();
+            if (normalized.isEmpty() || visitedMapPaths.contains(normalized)) {
+                continue;
+            }
+            visitedMapPaths.add(normalized);
+        }
+    }
+
+    public void markMapVisited(String mapPath) {
+        if (mapPath == null) {
+            return;
+        }
+        String normalized = mapPath.trim();
+        if (normalized.isEmpty() || visitedMapPaths.contains(normalized)) {
+            return;
+        }
+        visitedMapPaths.add(normalized);
     }
 
     public List<Item> getInventory() {

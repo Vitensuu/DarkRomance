@@ -38,7 +38,6 @@ public class SaveManager {
             playerData.setLevel(root.getInt("level", PlayerData.DEFAULT_STARTING_LEVEL));
             playerData.setScore(root.getInt("score", 0));
             playerData.setCoins(root.getInt("coins", 0));
-            playerData.setWorldPosition(root.getFloat("worldX", 0f), root.getFloat("worldY", 0f));
             playerData.setInventory(readInventory(root.get("inventory")));
             playerData.ensureDefaultInventory();
             return playerData;
@@ -65,8 +64,6 @@ public class SaveManager {
             payload.level = playerData.getLevel();
             payload.score = playerData.getScore();
             payload.coins = playerData.getCoins();
-            payload.worldX = playerData.getWorldX();
-            payload.worldY = playerData.getWorldY();
             payload.inventory = toPayloadItems(playerData.getInventory());
 
             saveFile.writeString(json.prettyPrint(payload), false, "UTF-8");
@@ -147,8 +144,6 @@ public class SaveManager {
         public int level;
         public int score;
         public int coins;
-        public float worldX;
-        public float worldY;
         public SaveItemPayload[] inventory;
     }
 
