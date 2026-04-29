@@ -8,7 +8,7 @@ public final class GameConfig {
     }
 
     public static final class Network {
-        public static final String SERVER_HOST = "172.20.10.2";
+        public static final String SERVER_HOST = "localhost";
         public static final int SERVER_PORT = 12345;
 
         private Network() {

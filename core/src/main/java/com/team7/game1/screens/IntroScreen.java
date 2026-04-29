@@ -53,7 +53,7 @@ public class IntroScreen implements Screen {
 
         BitmapFont hintFont = DarkRomanceGame.skin.getFont("default-font");
         hintFont.setColor(Color.valueOf("E8DEC9FF"));
-        glyphLayout.setText(hintFont, "Press Enter to continue");
+        glyphLayout.setText(hintFont, "Нажмите Enter, чтобы продолжить");
         hintFont.draw(
             batch,
             glyphLayout,

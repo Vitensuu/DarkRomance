@@ -41,15 +41,22 @@ public class GameScreen implements Screen {
 
     private static final String GAME_MUSIC_PATH = "music/game_theme.mp3";
     private static final float DEFAULT_MUSIC_VOLUME = 0.32f;
+    private static final float MENU_VOLUME_STEP = 0.1f;
+    private static final float ATTACK_ANIMATION_DURATION_SECONDS = 0.75f;
+
     private static final Color WORLD_COLOR = Color.valueOf("2F4A2CFF");
     private static final Color WORLD_ACCENT = Color.valueOf("405C34FF");
+
     private static final float MAP_SCALE = GameConfig.World.MAP_SCALE;
     private static final String DEFAULT_MAP_PATH = GameConfig.World.DEFAULT_MAP_PATH;
+
     private static final float NPC_TALK_DISTANCE = 115f;
+
     private static final float HERO_CAMP_MIN_X = 4860f;
     private static final float HERO_CAMP_MIN_Y = 4760f;
     private static final float HERO_CAMP_MAX_X = 5680f;
     private static final float HERO_CAMP_MAX_Y = 5560f;
+
     private static final float GUARDIAN_MIN_X = 3320f;
     private static final float GUARDIAN_MIN_Y = 5890f;
     private static final float GUARDIAN_MAX_X = 3750f;
@@ -58,31 +65,36 @@ public class GameScreen implements Screen {
     private final DarkRomanceGame game;
     private final GlyphLayout glyphLayout = new GlyphLayout();
     private final Rectangle nextButtonBounds = new Rectangle();
-    private final Rectangle collisionProbeBounds = new Rectangle();
     private final Rectangle triggerProbeBounds = new Rectangle();
     private final Vector2 worldTouchPoint = new Vector2();
     private final MapTransitionService mapTransitionService = new MapTransitionService();
     private final TriggerActionRegistry triggerActionRegistry = new TriggerActionRegistry(mapTransitionService);
+
     private SpriteBatch batch;
     private Music backgroundMusic;
     private FitViewport viewport;
     private Texture pixel;
+
     private TiledWorld tiledWorld;
     private Texture dialogFrameTexture;
     private Texture dialogNameplateTexture;
     private Texture dialogNextButtonTexture;
     private NinePatch dialogFramePatch;
+
     private NpcDialogueLibrary dialogueLibrary;
     private PlayerCharacter player;
     private Array<NPC> npcs;
     private NPC activeDialogNpc;
     private int activeDialogLineIndex;
+
     private MoveDirection lastPressedDirection = MoveDirection.DOWN;
     private float worldWidth = DarkRomanceGame.DESIGN_WIDTH;
     private float worldHeight = DarkRomanceGame.DESIGN_HEIGHT;
+
     private PlayerData playerData;
     private CharacterWindow characterWindow;
     private GameMenuWindow gameMenuWindow;
+
     private float musicVolume = DEFAULT_MUSIC_VOLUME;
     private boolean musicMuted;
     private boolean startSequenceActive = true;
@@ -96,12 +108,14 @@ public class GameScreen implements Screen {
     @Override
     public void show() {
         batch = new SpriteBatch();
-        startBackgroundMusic();
         viewport = new FitViewport(DarkRomanceGame.DESIGN_WIDTH, DarkRomanceGame.DESIGN_HEIGHT);
         viewport.update(Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), true);
         pixel = createSolidTexture(Color.WHITE);
+
+        startBackgroundMusic();
         loadMap(currentMapPath);
         loadDialogTextures();
+
         dialogueLibrary = new NpcDialogueLibrary();
         playerData = game.getCurrentPlayerData();
         if (playerData == null) {
@@ -110,37 +124,14 @@ public class GameScreen implements Screen {
         }
 
         player = new PlayerCharacter(worldWidth / 2f, worldHeight / 2f - 64f);
-        Vector2 playerSpawn = tiledWorld.findPlayerSpawn(player.getDrawWidth(), player.getDrawHeight());
-        if (playerSpawn != null) {
-            player.setBottomLeft(playerSpawn.x, playerSpawn.y);
-        }
+        placePlayerAtDefaultSpawn();
+
         float wakeUpDurationSeconds = player.getActionAnimationDuration(CharacterAnimator.AnimationState.WAKE_UP);
         player.triggerAnimationState(CharacterAnimator.AnimationState.WAKE_UP, wakeUpDurationSeconds);
+
         characterWindow = new CharacterWindow();
         gameMenuWindow = new GameMenuWindow();
-        npcs = new Array<NPC>();
-        npcs.add(
-            new NPCHero(
-                (HERO_CAMP_MIN_X + HERO_CAMP_MAX_X) * 0.5f,
-                (HERO_CAMP_MIN_Y + HERO_CAMP_MAX_Y) * 0.5f,
-                HERO_CAMP_MIN_X,
-                HERO_CAMP_MIN_Y,
-                HERO_CAMP_MAX_X,
-                HERO_CAMP_MAX_Y,
-                NPCHero.HERO_PROFILE
-            )
-        );
-        npcs.add(
-            new NPCHero(
-                (GUARDIAN_MIN_X + GUARDIAN_MAX_X) * 0.5f,
-                (GUARDIAN_MIN_Y + GUARDIAN_MAX_Y) * 0.5f,
-                GUARDIAN_MIN_X,
-                GUARDIAN_MIN_Y,
-                GUARDIAN_MAX_X,
-                GUARDIAN_MAX_Y,
-                NPCHero.GUARDIAN_PROFILE
-            )
-        );
+        npcs = createNpcs();
     }
 
     @Override
@@ -153,6 +144,7 @@ public class GameScreen implements Screen {
 
         viewport.apply();
         tiledWorld.renderBelowPlayer((OrthographicCamera) viewport.getCamera());
+
         batch.setProjectionMatrix(viewport.getCamera().combined);
         batch.begin();
         tiledWorld.drawObjectTileLayers(batch);
@@ -160,11 +152,12 @@ public class GameScreen implements Screen {
             drawGround();
         }
 
-        TextureRegion frame = player.getCurrentFrame();
-        batch.setColor(Color.WHITE);
         drawPatrolBounds();
         drawNpcs();
-        batch.draw(frame, player.getX(), player.getY(), player.getDrawWidth(), player.getDrawHeight());
+
+        TextureRegion playerFrame = player.getCurrentFrame();
+        batch.setColor(Color.WHITE);
+        batch.draw(playerFrame, player.getX(), player.getY(), player.getDrawWidth(), player.getDrawHeight());
         batch.end();
 
         tiledWorld.renderAbovePlayer((OrthographicCamera) viewport.getCamera());
@@ -177,17 +170,7 @@ public class GameScreen implements Screen {
     }
 
     private void update(float delta) {
-        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
-            if (gameMenuWindow.isVisible()) {
-                gameMenuWindow.close();
-                return;
-            }
-            if (activeDialogNpc != null) {
-                activeDialogNpc = null;
-                activeDialogLineIndex = 0;
-                return;
-            }
-            gameMenuWindow.open();
+        if (handleEscapeInput()) {
             return;
         }
 
@@ -195,52 +178,21 @@ public class GameScreen implements Screen {
             characterWindow.toggle();
         }
 
-        if (gameMenuWindow.isVisible()) {
-            GameMenuWindow.MenuAction menuAction = gameMenuWindow.handleInput(viewport);
-            if (menuAction == GameMenuWindow.MenuAction.CONTINUE) {
-                gameMenuWindow.close();
-                return;
-            }
-            if (menuAction == GameMenuWindow.MenuAction.TOGGLE_MUTE) {
-                toggleMusicMute();
-                return;
-            }
-            if (menuAction == GameMenuWindow.MenuAction.VOLUME_DOWN) {
-                setMusicVolume(musicVolume - 0.1f);
-                return;
-            }
-            if (menuAction == GameMenuWindow.MenuAction.VOLUME_UP) {
-                setMusicVolume(musicVolume + 0.1f);
-                return;
-            }
-            if (menuAction == GameMenuWindow.MenuAction.EXIT_GAME) {
-                SaveManager.savePlayer(playerData);
-                Gdx.app.exit();
-                return;
-            }
-            player.update(delta, 0f, 0f, worldWidth, worldHeight);
+        if (updateMenu(delta)) {
             return;
         }
 
-        if (startSequenceActive) {
-            if (!player.isAnimationStateActive(CharacterAnimator.AnimationState.WAKE_UP)) {
-                startSequenceActive = false;
-            }
-            player.update(delta, 0f, 0f, worldWidth, worldHeight);
+        if (updateWakeUpSequence(delta)) {
             return;
         }
+
         updateLastPressedDirection();
         handleDialogInput();
-
-        if (Gdx.input.isKeyJustPressed(Input.Keys.Z)) {
-            player.triggerAnimationState(CharacterAnimator.AnimationState.ATTACK_MAGIC, 0.75f);
-        }
-        if (Gdx.input.isKeyJustPressed(Input.Keys.X)) {
-            player.triggerAnimationState(CharacterAnimator.AnimationState.ATTACK_BOW, 0.75f);
-        }
+        handleAttackInput();
 
         float moveX = 0f;
         float moveY = 0f;
+
         boolean leftPressed = Gdx.input.isKeyPressed(Input.Keys.A) || Gdx.input.isKeyPressed(Input.Keys.LEFT);
         boolean rightPressed = Gdx.input.isKeyPressed(Input.Keys.D) || Gdx.input.isKeyPressed(Input.Keys.RIGHT);
         boolean upPressed = Gdx.input.isKeyPressed(Input.Keys.W) || Gdx.input.isKeyPressed(Input.Keys.UP);
@@ -295,9 +247,90 @@ public class GameScreen implements Screen {
             moveY = 0f;
         }
 
-        applyMovementWithCollisions(delta, moveX, moveY);
+        player.update(delta, moveX, moveY, worldWidth, worldHeight);
         updateTriggers();
         applyPendingMapTransition();
+        updateNpcs(delta);
+    }
+
+    private boolean handleEscapeInput() {
+        if (!Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+            return false;
+        }
+
+        if (gameMenuWindow.isVisible()) {
+            gameMenuWindow.close();
+            return true;
+        }
+
+        if (activeDialogNpc != null) {
+            closeDialog();
+            return true;
+        }
+
+        gameMenuWindow.open();
+        return true;
+    }
+
+    private boolean updateMenu(float delta) {
+        if (!gameMenuWindow.isVisible()) {
+            return false;
+        }
+
+        GameMenuWindow.MenuAction action = gameMenuWindow.handleInput(viewport);
+        switch (action) {
+            case CONTINUE:
+                gameMenuWindow.close();
+                return true;
+            case TOGGLE_MUTE:
+                toggleMusicMute();
+                return true;
+            case VOLUME_DOWN:
+                setMusicVolume(musicVolume - MENU_VOLUME_STEP);
+                return true;
+            case VOLUME_UP:
+                setMusicVolume(musicVolume + MENU_VOLUME_STEP);
+                return true;
+            case EXIT_GAME:
+                SaveManager.savePlayer(playerData);
+                Gdx.app.exit();
+                return true;
+            case NONE:
+            default:
+                player.update(delta, 0f, 0f, worldWidth, worldHeight);
+                return true;
+        }
+    }
+
+    private boolean updateWakeUpSequence(float delta) {
+        if (!startSequenceActive) {
+            return false;
+        }
+
+        if (!player.isAnimationStateActive(CharacterAnimator.AnimationState.WAKE_UP)) {
+            startSequenceActive = false;
+        }
+
+        player.update(delta, 0f, 0f, worldWidth, worldHeight);
+        return true;
+    }
+
+    private void handleAttackInput() {
+        if (Gdx.input.isKeyJustPressed(Input.Keys.Z)) {
+            player.triggerAnimationState(
+                CharacterAnimator.AnimationState.ATTACK_MAGIC,
+                ATTACK_ANIMATION_DURATION_SECONDS
+            );
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.X)) {
+            player.triggerAnimationState(
+                CharacterAnimator.AnimationState.ATTACK_BOW,
+                ATTACK_ANIMATION_DURATION_SECONDS
+            );
+        }
+    }
+
+    private void updateNpcs(float delta) {
         for (NPC npc : npcs) {
             if (npc == activeDialogNpc) {
                 continue;
@@ -310,6 +343,7 @@ public class GameScreen implements Screen {
         if (tiledWorld != null) {
             tiledWorld.dispose();
         }
+
         tiledWorld = new TiledWorld(mapPath, MAP_SCALE, batch, worldWidth, worldHeight);
         worldWidth = tiledWorld.getWorldWidth();
         worldHeight = tiledWorld.getWorldHeight();
@@ -327,27 +361,30 @@ public class GameScreen implements Screen {
         }
 
         loadMap(request.getMapPath());
-        Vector2 playerSpawn = null;
-        if (request.getTargetMarker() != null && !request.getTargetMarker().trim().isEmpty()) {
-            playerSpawn = tiledWorld.findSpawnByMarker(request.getTargetMarker(), player.getDrawWidth(), player.getDrawHeight());
-        }
-        if (playerSpawn == null && (request.getSpawnX() != 0f || request.getSpawnY() != 0f)) {
-            playerSpawn = new Vector2(request.getSpawnX(), request.getSpawnY());
-        }
-        if (playerSpawn == null) {
-            playerSpawn = tiledWorld.findPlayerSpawn(player.getDrawWidth(), player.getDrawHeight());
-        }
+
+        Vector2 playerSpawn = resolveTransitionSpawn(request);
         if (playerSpawn != null) {
             player.setBottomLeft(playerSpawn.x, playerSpawn.y);
         }
 
-        activeDialogNpc = null;
-        activeDialogLineIndex = 0;
+        closeDialog();
         activeTriggerId = null;
     }
 
-    private void applyMovementWithCollisions(float delta, float moveX, float moveY) {
-        player.update(delta, moveX, moveY, worldWidth, worldHeight);
+    private Vector2 resolveTransitionSpawn(MapTransitionService.MapTransitionRequest request) {
+        String marker = request.getTargetMarker();
+        if (marker != null && !marker.trim().isEmpty()) {
+            Vector2 markerSpawn = tiledWorld.findSpawnByMarker(marker, player.getDrawWidth(), player.getDrawHeight());
+            if (markerSpawn != null) {
+                return markerSpawn;
+            }
+        }
+
+        if (request.getSpawnX() != 0f || request.getSpawnY() != 0f) {
+            return new Vector2(request.getSpawnX(), request.getSpawnY());
+        }
+
+        return tiledWorld.findPlayerSpawn(player.getDrawWidth(), player.getDrawHeight());
     }
 
     private void updateTriggers() {
@@ -390,9 +427,7 @@ public class GameScreen implements Screen {
 
     private void handleDialogInput() {
         if (activeDialogNpc != null) {
-            if (Gdx.input.isKeyJustPressed(Input.Keys.F)
-                || Gdx.input.isKeyJustPressed(Input.Keys.ENTER)
-                || Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) {
+            if (isDialogAdvancePressed()) {
                 advanceDialog();
                 return;
             }
@@ -401,10 +436,8 @@ public class GameScreen implements Screen {
                 viewport.unproject(worldTouchPoint.set(Gdx.input.getX(), Gdx.input.getY()));
                 if (nextButtonBounds.contains(worldTouchPoint)) {
                     advanceDialog();
-                    return;
                 }
             }
-
             return;
         }
 
@@ -413,12 +446,22 @@ public class GameScreen implements Screen {
         }
 
         NPC nearestNpc = findNearestNpcWithinTalkDistance();
-        if (nearestNpc != null) {
-            activeDialogNpc = nearestNpc;
-            activeDialogLineIndex = 0;
+        if (nearestNpc == null) {
+            closeDialog();
             return;
         }
 
+        activeDialogNpc = nearestNpc;
+        activeDialogLineIndex = 0;
+    }
+
+    private boolean isDialogAdvancePressed() {
+        return Gdx.input.isKeyJustPressed(Input.Keys.F)
+            || Gdx.input.isKeyJustPressed(Input.Keys.ENTER)
+            || Gdx.input.isKeyJustPressed(Input.Keys.SPACE);
+    }
+
+    private void closeDialog() {
         activeDialogNpc = null;
         activeDialogLineIndex = 0;
     }
@@ -484,17 +527,19 @@ public class GameScreen implements Screen {
         BitmapFont titleFont = DarkRomanceGame.skin.getFont("GuildensternSmall");
         BitmapFont titleShadowFont = DarkRomanceGame.skin.getFont("GuildensternSmallShadow");
         BitmapFont bodyFont = DarkRomanceGame.skin.getFont("default-font");
+
         float portraitX = panelX + GameConfig.Dialog.PADDING;
         float portraitY = panelY + GameConfig.Dialog.HEIGHT - GameConfig.Dialog.PADDING - GameConfig.Dialog.PORTRAIT_SIZE;
         float portraitInset = 8f;
+
         float textX = portraitX + GameConfig.Dialog.PORTRAIT_SIZE + 24f;
         float titleTopY = panelY + GameConfig.Dialog.HEIGHT - GameConfig.Dialog.PADDING;
         float bodyTopY = titleTopY - 54f;
         float textWidth = GameConfig.Dialog.WIDTH - (textX - panelX) - GameConfig.Dialog.PADDING;
         float hintY = panelY + 24f;
+
         NpcDialogueEntry dialogueEntry = dialogueLibrary.getEntry(activeDialogNpc.getDialogueId());
-        String[] dialogLines = dialogueEntry.getLines();
-        String dialogText = applyDialogueTokens(dialogLines[Math.min(activeDialogLineIndex, dialogLines.length - 1)]);
+        String dialogText = applyDialogueTokens(dialogueEntry.getLine(activeDialogLineIndex));
 
         batch.setColor(GameConfig.Dialog.PORTRAIT_BG);
         batch.draw(pixel, portraitX, portraitY, GameConfig.Dialog.PORTRAIT_SIZE, GameConfig.Dialog.PORTRAIT_SIZE);
@@ -503,6 +548,7 @@ public class GameScreen implements Screen {
         batch.draw(pixel, portraitX, portraitY, GameConfig.Dialog.PORTRAIT_SIZE, 4f);
         batch.draw(pixel, portraitX, portraitY, 4f, GameConfig.Dialog.PORTRAIT_SIZE);
         batch.draw(pixel, portraitX + GameConfig.Dialog.PORTRAIT_SIZE - 4f, portraitY, 4f, GameConfig.Dialog.PORTRAIT_SIZE);
+
         batch.setColor(Color.WHITE);
         batch.draw(
             activeDialogNpc.getDialoguePortraitFrame(),
@@ -516,10 +562,12 @@ public class GameScreen implements Screen {
         titleFont.setColor(GameConfig.Dialog.TITLE);
         titleShadowFont.setColor(GameConfig.Dialog.TITLE_SHADOW);
         bodyFont.setColor(GameConfig.Dialog.BODY_TEXT);
+
         glyphLayout.setText(titleFont, npcName);
         float nameplateWidth = Math.max(190f, glyphLayout.width + 48f);
         float nameplateX = textX - 8f;
         float nameplateY = panelY + GameConfig.Dialog.HEIGHT - GameConfig.Dialog.NAMEPLATE_HEIGHT - 16f;
+
         if (dialogNameplateTexture != null) {
             batch.draw(dialogNameplateTexture, nameplateX, nameplateY, nameplateWidth, GameConfig.Dialog.NAMEPLATE_HEIGHT);
         } else {
@@ -532,6 +580,7 @@ public class GameScreen implements Screen {
         float nameTextY = nameplateY + 25f;
         titleShadowFont.draw(batch, npcName, nameTextX + 1f, nameTextY - 1f);
         titleFont.draw(batch, npcName, nameTextX, nameTextY);
+
         bodyFont.draw(batch, dialogText, textX, bodyTopY, textWidth, Align.left, true);
         glyphLayout.setText(bodyFont, GameConfig.Dialog.HINT_TEXT);
         bodyFont.draw(batch, glyphLayout, panelX + GameConfig.Dialog.PADDING, hintY);
@@ -539,6 +588,7 @@ public class GameScreen implements Screen {
         float buttonX = panelX + GameConfig.Dialog.WIDTH - GameConfig.Dialog.PADDING - GameConfig.Dialog.NEXT_BUTTON_WIDTH;
         float buttonY = panelY + 18f;
         nextButtonBounds.set(buttonX, buttonY, GameConfig.Dialog.NEXT_BUTTON_WIDTH, GameConfig.Dialog.NEXT_BUTTON_HEIGHT);
+
         if (dialogNextButtonTexture != null) {
             batch.draw(dialogNextButtonTexture, buttonX, buttonY, GameConfig.Dialog.NEXT_BUTTON_WIDTH, GameConfig.Dialog.NEXT_BUTTON_HEIGHT);
         } else {
@@ -554,6 +604,7 @@ public class GameScreen implements Screen {
             buttonX + (GameConfig.Dialog.NEXT_BUTTON_WIDTH - glyphLayout.width) / 2f,
             buttonY + GameConfig.Dialog.NEXT_BUTTON_HEIGHT / 2f + glyphLayout.height / 2f - 4f
         );
+
         batch.setColor(Color.WHITE);
     }
 
@@ -584,9 +635,10 @@ public class GameScreen implements Screen {
             if (!npc.canInteract(player)) {
                 continue;
             }
-            float npcCenterX = npc.getX() + npc.getWidth() / 2f;
-            float npcCenterY = npc.getY() + npc.getHeight() / 2f;
-            float distance = playerDistanceTo(npcCenterX, npcCenterY);
+
+            float npcCenterX = npc.getX() + npc.getWidth() * 0.5f;
+            float npcCenterY = npc.getY() + npc.getHeight() * 0.5f;
+            float distance = Vector2.dst(player.getCenterX(), player.getCenterY(), npcCenterX, npcCenterY);
             if (distance <= nearestDistance) {
                 nearestDistance = distance;
                 nearestNpc = npc;
@@ -596,20 +648,16 @@ public class GameScreen implements Screen {
         return nearestNpc;
     }
 
-    private float playerDistanceTo(float x, float y) {
-        float deltaX = player.getCenterX() - x;
-        float deltaY = player.getCenterY() - y;
-        return (float) Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-    }
-
     private String applyDialogueTokens(String dialogueLine) {
         if (dialogueLine == null) {
             return "";
         }
+
         String username = "Игрок";
         if (playerData != null && playerData.getUsername() != null && !playerData.getUsername().trim().isEmpty()) {
             username = playerData.getUsername().trim();
         }
+
         return dialogueLine
             .replace("{playerName}", username)
             .replace("playerName", username);
@@ -642,8 +690,7 @@ public class GameScreen implements Screen {
         }
 
         if (isLastDialogLine()) {
-            activeDialogNpc = null;
-            activeDialogLineIndex = 0;
+            closeDialog();
             return;
         }
 
@@ -656,7 +703,41 @@ public class GameScreen implements Screen {
         }
 
         NpcDialogueEntry dialogueEntry = dialogueLibrary.getEntry(activeDialogNpc.getDialogueId());
-        return activeDialogLineIndex >= dialogueEntry.getLines().length - 1;
+        return activeDialogLineIndex >= dialogueEntry.getLineCount() - 1;
+    }
+
+    private void placePlayerAtDefaultSpawn() {
+        Vector2 playerSpawn = tiledWorld.findPlayerSpawn(player.getDrawWidth(), player.getDrawHeight());
+        if (playerSpawn != null) {
+            player.setBottomLeft(playerSpawn.x, playerSpawn.y);
+        }
+    }
+
+    private Array<NPC> createNpcs() {
+        Array<NPC> worldNpcs = new Array<NPC>();
+        worldNpcs.add(
+            new NPCHero(
+                (HERO_CAMP_MIN_X + HERO_CAMP_MAX_X) * 0.5f,
+                (HERO_CAMP_MIN_Y + HERO_CAMP_MAX_Y) * 0.5f,
+                HERO_CAMP_MIN_X,
+                HERO_CAMP_MIN_Y,
+                HERO_CAMP_MAX_X,
+                HERO_CAMP_MAX_Y,
+                NPCHero.HERO_PROFILE
+            )
+        );
+        worldNpcs.add(
+            new NPCHero(
+                (GUARDIAN_MIN_X + GUARDIAN_MAX_X) * 0.5f,
+                (GUARDIAN_MIN_Y + GUARDIAN_MAX_Y) * 0.5f,
+                GUARDIAN_MIN_X,
+                GUARDIAN_MIN_Y,
+                GUARDIAN_MAX_X,
+                GUARDIAN_MAX_Y,
+                NPCHero.GUARDIAN_PROFILE
+            )
+        );
+        return worldNpcs;
     }
 
     private Texture createSolidTexture(Color color) {
@@ -678,8 +759,14 @@ public class GameScreen implements Screen {
     public void dispose() {
         stopBackgroundMusic();
         SaveManager.savePlayer(playerData);
-        batch.dispose();
-        pixel.dispose();
+
+        if (batch != null) {
+            batch.dispose();
+        }
+        if (pixel != null) {
+            pixel.dispose();
+        }
+
         if (dialogFrameTexture != null) {
             dialogFrameTexture.dispose();
         }
@@ -689,6 +776,7 @@ public class GameScreen implements Screen {
         if (dialogNextButtonTexture != null) {
             dialogNextButtonTexture.dispose();
         }
+
         if (dialogueLibrary != null) {
             dialogueLibrary.dispose();
         }
@@ -701,9 +789,14 @@ public class GameScreen implements Screen {
         if (gameMenuWindow != null) {
             gameMenuWindow.dispose();
         }
-        player.dispose();
-        for (NPC npc : npcs) {
-            npc.dispose();
+
+        if (player != null) {
+            player.dispose();
+        }
+        if (npcs != null) {
+            for (NPC npc : npcs) {
+                npc.dispose();
+            }
         }
     }
 
@@ -712,8 +805,14 @@ public class GameScreen implements Screen {
         stopBackgroundMusic();
         SaveManager.savePlayer(playerData);
     }
-    @Override public void pause() {}
-    @Override public void resume() {}
+
+    @Override
+    public void pause() {
+    }
+
+    @Override
+    public void resume() {
+    }
 
     private void startBackgroundMusic() {
         if (backgroundMusic != null || !Gdx.files.internal(GAME_MUSIC_PATH).exists()) {

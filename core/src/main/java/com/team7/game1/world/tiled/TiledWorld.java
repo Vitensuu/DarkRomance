@@ -19,14 +19,20 @@ import com.badlogic.gdx.utils.Disposable;
 public class TiledWorld implements Disposable {
 
     private final float mapScale;
+
     private TiledMap tiledMap;
     private OrthogonalTiledMapRenderer renderer;
-    private float worldWidth;
-    private float worldHeight;
-    private CollisionLayerService collisionLayerService;
     private TriggerService triggerService;
 
-    public TiledWorld(String mapPath, float mapScale, SpriteBatch batch, float fallbackWorldWidth, float fallbackWorldHeight) {
+    private int[] aboveLayerIndices = new int[0];
+    private float worldWidth;
+    private float worldHeight;
+
+    public TiledWorld(String mapPath,
+                      float mapScale,
+                      SpriteBatch batch,
+                      float fallbackWorldWidth,
+                      float fallbackWorldHeight) {
         this.mapScale = mapScale;
         this.worldWidth = fallbackWorldWidth;
         this.worldHeight = fallbackWorldHeight;
@@ -45,10 +51,6 @@ public class TiledWorld implements Disposable {
         return worldHeight;
     }
 
-    public CollisionLayerService getCollisionLayerService() {
-        return collisionLayerService;
-    }
-
     public TriggerService getTriggerService() {
         return triggerService;
     }
@@ -57,29 +59,29 @@ public class TiledWorld implements Disposable {
         if (!isLoaded()) {
             return;
         }
+
         renderer.setView(camera);
-        int[] aboveIndices = resolveLayerIndices(TiledLayerNames.ABOVE_PLAYER_LAYERS);
-        if (aboveIndices.length == 0) {
+        if (aboveLayerIndices.length == 0) {
             renderer.render();
             return;
         }
-        int[] belowIndices = resolveAllLayerIndicesExcept(aboveIndices);
-        if (belowIndices.length > 0) {
-            renderer.render(belowIndices);
+
+        int[] belowLayerIndices = resolveAllLayerIndicesExcept(aboveLayerIndices);
+        if (belowLayerIndices.length == 0) {
+            renderer.render();
             return;
         }
-        renderer.render();
+
+        renderer.render(belowLayerIndices);
     }
 
     public void renderAbovePlayer(OrthographicCamera camera) {
-        if (!isLoaded()) {
+        if (!isLoaded() || aboveLayerIndices.length == 0) {
             return;
         }
+
         renderer.setView(camera);
-        int[] layerIndices = resolveLayerIndices(TiledLayerNames.ABOVE_PLAYER_LAYERS);
-        if (layerIndices.length > 0) {
-            renderer.render(layerIndices);
-        }
+        renderer.render(aboveLayerIndices);
     }
 
     public void drawObjectTileLayers(SpriteBatch batch) {
@@ -108,7 +110,15 @@ public class TiledWorld implements Disposable {
         if (tiledMap == null || markerName == null || markerName.trim().isEmpty()) {
             return null;
         }
-        return findSpawnByMarkerRecursive(tiledMap.getLayers(), markerName.trim(), playerDrawWidth, playerDrawHeight, 0f, 0f);
+
+        return findSpawnByMarkerRecursive(
+            tiledMap.getLayers(),
+            markerName.trim(),
+            playerDrawWidth,
+            playerDrawHeight,
+            0f,
+            0f
+        );
     }
 
     @Override
@@ -119,40 +129,48 @@ public class TiledWorld implements Disposable {
         if (tiledMap != null) {
             tiledMap.dispose();
         }
-        renderer = null;
+
         tiledMap = null;
+        renderer = null;
+        triggerService = null;
+        aboveLayerIndices = new int[0];
     }
 
     private void load(String mapPath, SpriteBatch batch) {
         try {
             tiledMap = new TmxMapLoader().load(mapPath);
             renderer = new OrthogonalTiledMapRenderer(tiledMap, mapScale, batch);
-
-            Integer mapTilesWide = tiledMap.getProperties().get("width", Integer.class);
-            Integer mapTilesHigh = tiledMap.getProperties().get("height", Integer.class);
-            Integer tileWidth = tiledMap.getProperties().get("tilewidth", Integer.class);
-            Integer tileHeight = tiledMap.getProperties().get("tileheight", Integer.class);
-
-            if (mapTilesWide != null && mapTilesHigh != null && tileWidth != null && tileHeight != null) {
-                worldWidth = mapTilesWide * tileWidth * mapScale;
-                worldHeight = mapTilesHigh * tileHeight * mapScale;
-            }
-
-            collisionLayerService = new CollisionLayerService(tiledMap, mapScale);
+            updateWorldSizeFromMap();
             triggerService = new TriggerService(tiledMap, mapScale);
+            aboveLayerIndices = resolveLayerIndices(TiledLayerNames.ABOVE_PLAYER_LAYERS);
         } catch (Exception exception) {
             Gdx.app.error("TiledWorld", "Failed to load map " + mapPath, exception);
             tiledMap = null;
             renderer = null;
-            collisionLayerService = null;
             triggerService = null;
+            aboveLayerIndices = new int[0];
         }
+    }
+
+    private void updateWorldSizeFromMap() {
+        Integer mapTilesWide = tiledMap.getProperties().get("width", Integer.class);
+        Integer mapTilesHigh = tiledMap.getProperties().get("height", Integer.class);
+        Integer tileWidth = tiledMap.getProperties().get("tilewidth", Integer.class);
+        Integer tileHeight = tiledMap.getProperties().get("tileheight", Integer.class);
+
+        if (mapTilesWide == null || mapTilesHigh == null || tileWidth == null || tileHeight == null) {
+            return;
+        }
+
+        worldWidth = mapTilesWide * tileWidth * mapScale;
+        worldHeight = mapTilesHigh * tileHeight * mapScale;
     }
 
     private int[] resolveLayerIndices(String[] layerNames) {
         if (tiledMap == null) {
             return new int[0];
         }
+
         Array<Integer> indices = new Array<Integer>();
         MapLayers layers = tiledMap.getLayers();
         for (String layerName : layerNames) {
@@ -163,8 +181,8 @@ public class TiledWorld implements Disposable {
         }
 
         int[] result = new int[indices.size];
-        for (int index = 0; index < indices.size; index++) {
-            result[index] = indices.get(index);
+        for (int i = 0; i < indices.size; i++) {
+            result[i] = indices.get(i);
         }
         return result;
     }
@@ -177,23 +195,26 @@ public class TiledWorld implements Disposable {
         Array<Integer> indices = new Array<Integer>();
         MapLayers layers = tiledMap.getLayers();
         for (int layerIndex = 0; layerIndex < layers.getCount(); layerIndex++) {
-            boolean excluded = false;
-            for (int excludedIndex : excludedIndices) {
-                if (layerIndex == excludedIndex) {
-                    excluded = true;
-                    break;
-                }
+            if (contains(excludedIndices, layerIndex)) {
+                continue;
             }
-            if (!excluded) {
-                indices.add(layerIndex);
-            }
+            indices.add(layerIndex);
         }
 
         int[] result = new int[indices.size];
-        for (int index = 0; index < indices.size; index++) {
-            result[index] = indices.get(index);
+        for (int i = 0; i < indices.size; i++) {
+            result[i] = indices.get(i);
         }
         return result;
+    }
+
+    private boolean contains(int[] values, int target) {
+        for (int value : values) {
+            if (value == target) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void drawLayerTileObjectsRecursive(SpriteBatch batch, MapLayers layers, float parentOffsetX, float parentOffsetY) {
@@ -242,7 +263,12 @@ public class TiledWorld implements Disposable {
         }
     }
 
-    private Vector2 findSpawnByMarkerRecursive(MapLayers layers, String markerName, float playerDrawWidth, float playerDrawHeight, float parentOffsetX, float parentOffsetY) {
+    private Vector2 findSpawnByMarkerRecursive(MapLayers layers,
+                                               String markerName,
+                                               float playerDrawWidth,
+                                               float playerDrawHeight,
+                                               float parentOffsetX,
+                                               float parentOffsetY) {
         for (MapLayer layer : layers) {
             float layerOffsetX = parentOffsetX + layer.getOffsetX();
             float layerOffsetY = parentOffsetY + layer.getOffsetY();
@@ -292,8 +318,8 @@ public class TiledWorld implements Disposable {
             }
 
             MapGroupLayer group = (MapGroupLayer) layer;
-            String groupName = group.getName() == null ? "" : group.getName().toLowerCase();
-            if (TiledLayerNames.START_GROUP.equals(groupName)) {
+            String groupName = group.getName();
+            if (groupName != null && TiledLayerNames.START_GROUP.equalsIgnoreCase(groupName.trim())) {
                 return findObjectLayerBounds(group.getLayers(), TiledLayerNames.START_OBJECT_LAYER);
             }
 
@@ -306,10 +332,9 @@ public class TiledWorld implements Disposable {
     }
 
     private float[] findObjectLayerBounds(Iterable<MapLayer> layers, String layerName) {
-        String targetName = layerName.toLowerCase();
         for (MapLayer layer : layers) {
-            String name = layer.getName() == null ? "" : layer.getName().toLowerCase();
-            if (!targetName.equals(name)) {
+            String name = layer.getName();
+            if (name == null || !layerName.equalsIgnoreCase(name.trim())) {
                 continue;
             }
 
@@ -324,6 +349,7 @@ public class TiledWorld implements Disposable {
                 float y = readFloatProperty(object, "y");
                 float width = readFloatProperty(object, "width");
                 float height = readFloatProperty(object, "height");
+
                 minX = Math.min(minX, x);
                 minY = Math.min(minY, y - height);
                 maxX = Math.max(maxX, x + width);
@@ -332,7 +358,7 @@ public class TiledWorld implements Disposable {
             }
 
             if (found) {
-                return new float[] { minX, minY, maxX, maxY };
+                return new float[] {minX, minY, maxX, maxY};
             }
         }
         return null;

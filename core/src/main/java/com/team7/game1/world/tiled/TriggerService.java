@@ -18,7 +18,13 @@ public class TriggerService {
         private final float targetX;
         private final float targetY;
 
-        public TriggerZone(String id, Rectangle bounds, String actionType, String targetMapPath, String targetMarker, float targetX, float targetY) {
+        public TriggerZone(String id,
+                           Rectangle bounds,
+                           String actionType,
+                           String targetMapPath,
+                           String targetMarker,
+                           float targetX,
+                           float targetY) {
             this.id = id;
             this.bounds = bounds;
             this.actionType = actionType;
@@ -71,47 +77,10 @@ public class TriggerService {
 
         MapObjects objects = triggerLayer.getObjects();
         for (MapObject object : objects) {
-            float x = readFloatProperty(object, "x") * mapScale;
-            float yTop = readFloatProperty(object, "y") * mapScale;
-            float width = readFloatProperty(object, "width") * mapScale;
-            float height = readFloatProperty(object, "height") * mapScale;
-            if (width <= 0f || height <= 0f) {
-                continue;
+            TriggerZone zone = buildZone(object, mapScale, triggerZones.size);
+            if (zone != null) {
+                triggerZones.add(zone);
             }
-
-            String id = object.getName();
-            if (id == null || id.isEmpty()) {
-                id = object.getProperties().get("id", String.class);
-            }
-            if (id == null || id.isEmpty()) {
-                id = "trigger_" + triggerZones.size;
-            }
-
-            String actionType = object.getProperties().get("action", String.class);
-            if (actionType == null || actionType.isEmpty()) {
-                actionType = object.getProperties().get("type", String.class);
-            }
-            if (actionType == null || actionType.isEmpty()) {
-                actionType = "log";
-            }
-
-            float targetX = readFloatProperty(object, "targetX") * mapScale;
-            float targetY = readFloatProperty(object, "targetY") * mapScale;
-            String targetMapPath = object.getProperties().get("targetMap", String.class);
-            String targetMarker = object.getProperties().get("targetMarker", String.class);
-
-            float yBottom = yTop - height;
-            triggerZones.add(
-                new TriggerZone(
-                    id,
-                    new Rectangle(x, yBottom, width, height),
-                    actionType,
-                    targetMapPath,
-                    targetMarker,
-                    targetX,
-                    targetY
-                )
-            );
         }
     }
 
@@ -122,6 +91,52 @@ public class TriggerService {
             }
         }
         return null;
+    }
+
+    private TriggerZone buildZone(MapObject object, float mapScale, int fallbackIndex) {
+        float x = readFloatProperty(object, "x") * mapScale;
+        float yTop = readFloatProperty(object, "y") * mapScale;
+        float width = readFloatProperty(object, "width") * mapScale;
+        float height = readFloatProperty(object, "height") * mapScale;
+
+        if (width <= 0f || height <= 0f) {
+            return null;
+        }
+
+        String id = readStringProperty(object, "id", object.getName());
+        if (id == null || id.trim().isEmpty()) {
+            id = "trigger_" + fallbackIndex;
+        }
+
+        String actionType = readStringProperty(object, "action", null);
+        if (actionType == null || actionType.trim().isEmpty()) {
+            actionType = readStringProperty(object, "type", "log");
+        }
+
+        float targetX = readFloatProperty(object, "targetX") * mapScale;
+        float targetY = readFloatProperty(object, "targetY") * mapScale;
+        String targetMapPath = readStringProperty(object, "targetMap", null);
+        String targetMarker = readStringProperty(object, "targetMarker", null);
+
+        float yBottom = yTop - height;
+        return new TriggerZone(
+            id,
+            new Rectangle(x, yBottom, width, height),
+            actionType,
+            targetMapPath,
+            targetMarker,
+            targetX,
+            targetY
+        );
+    }
+
+    private String readStringProperty(MapObject object, String key, String fallback) {
+        Object value = object.getProperties().get(key);
+        if (value == null) {
+            return fallback;
+        }
+        String asString = String.valueOf(value).trim();
+        return asString.isEmpty() ? fallback : asString;
     }
 
     private float readFloatProperty(MapObject object, String key) {

@@ -148,8 +148,8 @@ public class LoginScreen implements Screen {
         fieldContainer.height(50f);
 
         // Кнопки с маленьким шрифтом (создаются через метод createActionLabel, который мы тоже поправим)
-        backLabel = createActionLabel("Назад", false, actor -> removeLastLetter());
-        readyLabel = createActionLabel("Готово", true, actor -> handleReadyPressed());
+        backLabel = createActionLabel("Назад", actor -> removeLastLetter());
+        readyLabel = createActionLabel("Готово", actor -> handleReadyPressed());
 
         Table actionTable = new Table();
         actionTable.add(backLabel.stack).padRight(40f);
@@ -171,8 +171,8 @@ public class LoginScreen implements Screen {
         confirmNameLabel.setAlignment(Align.center);
 
         // Кнопки диалога (тоже маленький шрифт)
-        yesLabel = createActionLabel("Да", true, actor -> confirmLogin());
-        noLabel = createActionLabel("Нет", false, actor -> closeConfirm());
+        yesLabel = createActionLabel("Да", actor -> confirmLogin());
+        noLabel = createActionLabel("Нет", actor -> closeConfirm());
 
         Table confirmActions = new Table();
         confirmActions.add(yesLabel.stack).padRight(80f);
@@ -191,7 +191,7 @@ public class LoginScreen implements Screen {
         stage.addActor(confirmContainer);
     }
 
-    private ActionTextButton createActionLabel(String text, boolean bright, ClickAction action) {
+    private ActionTextButton createActionLabel(String text, ClickAction action) {
         BitmapFont smallFont = DarkRomanceGame.skin.getFont("GuildensternSmall");
         BitmapFont smallShadowFont = DarkRomanceGame.skin.getFont("GuildensternSmallShadow");
 
@@ -203,24 +203,8 @@ public class LoginScreen implements Screen {
         shadowStyle.fontColor = Color.valueOf("00000040");
 
         Stack stack = createShadowLabel(text, shadowStyle, actionStyle, 4f, -8f);
-        Label label = (Label) ((Container<?>) stack.getChildren().get(1)).getActor();
-
         stack.setTouchable(Touchable.enabled);
         stack.addListener(new ClickListener() {
-            @Override
-            public void enter(InputEvent event, float x, float y, int pointer, Actor fromActor) {
-                if (!loginInProgress) {
-                    label.setColor(Color.valueOf("F2F2F2FF"));
-                }
-            }
-
-            @Override
-            public void exit(InputEvent event, float x, float y, int pointer, Actor toActor) {
-                if (!loginInProgress) {
-                    label.setColor(Color.valueOf("F2F2F2FF"));
-                }
-            }
-
             @Override
             public void clicked(InputEvent event, float x, float y) {
                 if (!loginInProgress) {
@@ -228,7 +212,7 @@ public class LoginScreen implements Screen {
                 }
             }
         });
-        return new ActionTextButton(stack, label, bright);
+        return new ActionTextButton(stack);
     }
 
     private Stack createShadowLabel(String text, Label.LabelStyle shadowStyle, Label.LabelStyle mainStyle,
@@ -460,13 +444,9 @@ public class LoginScreen implements Screen {
 
     private static class ActionTextButton {
         final Stack stack;
-        final Label label;
-        final boolean bright;
 
-        ActionTextButton(Stack stack, Label label, boolean bright) {
+        ActionTextButton(Stack stack) {
             this.stack = stack;
-            this.label = label;
-            this.bright = bright;
         }
     }
 }

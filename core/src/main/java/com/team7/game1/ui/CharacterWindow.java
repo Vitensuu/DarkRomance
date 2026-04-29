@@ -16,25 +16,32 @@ import com.team7.game1.models.PlayerData;
 
 public class CharacterWindow {
 
-        private static final float WINDOW_WIDTH = 620f;
+    private static final float WINDOW_WIDTH = 620f;
     private static final float WINDOW_HEIGHT = 405f;
+
     private static final float PORTRAIT_X = 74f;
     private static final float PORTRAIT_Y = 116f;
     private static final float PORTRAIT_SIZE = 128f;
+
     private static final float CONTENT_X = 244f;
     private static final float CONTENT_TOP_OFFSET = 110f;
     private static final float LINE_GAP = 46f;
+
     private static final float HEALTH_LABEL_WIDTH = 88f;
     private static final float BAR_WIDTH = 190f;
     private static final float BAR_HEIGHT = 14f;
+
     private static final float FOOTER_RIGHT_PADDING = 72f;
     private static final float FIELD_FONT_SCALE = 0.58f;
+
+    private static final float FIELD_VALUE_OFFSET_X = 120f;
     private static final float INVENTORY_VALUE_OFFSET_X = 120f;
     private static final float INVENTORY_LINE_GAP = 18f;
 
     private final GlyphLayout glyphLayout = new GlyphLayout();
     private final Texture windowTexture;
     private final Texture portraitTexture;
+
     private boolean visible;
 
     public CharacterWindow() {
@@ -54,7 +61,11 @@ public class CharacterWindow {
         return visible;
     }
 
-    public void draw(SpriteBatch batch, Texture pixel, FitViewport viewport, PlayerData playerData, String equippedWeapon) {
+    public void draw(SpriteBatch batch,
+                     Texture pixel,
+                     FitViewport viewport,
+                     PlayerData playerData,
+                     String equippedWeapon) {
         if (!visible || playerData == null) {
             return;
         }
@@ -67,6 +78,7 @@ public class CharacterWindow {
 
         BitmapFont titleFont = DarkRomanceGame.skin.getFont("GuildensternSmall");
         BitmapFont bodyFont = DarkRomanceGame.skin.getFont("default-font");
+
         float originalTitleScaleX = titleFont.getData().scaleX;
         float originalTitleScaleY = titleFont.getData().scaleY;
         titleFont.getData().setScale(FIELD_FONT_SCALE);
@@ -78,27 +90,51 @@ public class CharacterWindow {
 
         float textX = x + CONTENT_X;
         float textY = y + WINDOW_HEIGHT - CONTENT_TOP_OFFSET;
-        drawFieldLine(batch, titleFont, "Name", playerData.getUsername(), textX, textY);
-        drawFieldLine(batch, titleFont, "Level", String.valueOf(playerData.getLevel()), textX, textY - LINE_GAP);
-        drawFieldLine(batch, titleFont, "Weapon", normalizeWeapon(equippedWeapon), textX, textY - LINE_GAP * 2f);
+
+        drawFieldLine(batch, titleFont, "Имя", playerData.getUsername(), textX, textY);
+        drawFieldLine(batch, titleFont, "Уровень", String.valueOf(playerData.getLevel()), textX, textY - LINE_GAP);
+        drawFieldLine(batch, titleFont, "Оружие", normalizeWeapon(equippedWeapon), textX, textY - LINE_GAP * 2f);
+
         float healthY = textY - LINE_GAP * 3f;
-        titleFont.draw(batch, "Health", textX, healthY);
+        titleFont.draw(batch, "Здоровье", textX, healthY);
+
         float inventoryY = textY - LINE_GAP * 4f;
-        titleFont.draw(batch, "Inventory", textX, inventoryY);
+        titleFont.draw(batch, "Инвентарь", textX, inventoryY);
 
         drawHealthBar(batch, pixel, textX + HEALTH_LABEL_WIDTH, healthY - BAR_HEIGHT + 1f, BAR_WIDTH, BAR_HEIGHT, playerData);
         drawInventory(batch, bodyFont, textX + INVENTORY_VALUE_OFFSET_X, inventoryY, playerData);
 
-        glyphLayout.setText(bodyFont, "Press C to close");
+        glyphLayout.setText(bodyFont, "Нажмите C, чтобы закрыть");
         bodyFont.draw(batch, glyphLayout, x + WINDOW_WIDTH - FOOTER_RIGHT_PADDING - glyphLayout.width, y + 44f);
+
         titleFont.getData().setScale(originalTitleScaleX, originalTitleScaleY);
+    }
+
+    public void dispose() {
+        if (windowTexture != null) {
+            windowTexture.dispose();
+        }
+        if (portraitTexture != null) {
+            portraitTexture.dispose();
+        }
     }
 
     private String normalizeWeapon(String equippedWeapon) {
         if (equippedWeapon == null || equippedWeapon.trim().isEmpty()) {
-            return "Unarmed";
+            return "Без оружия";
         }
-        return equippedWeapon.trim();
+
+        String normalized = equippedWeapon.trim();
+        if ("Unarmed".equalsIgnoreCase(normalized)) {
+            return "Без оружия";
+        }
+        if ("Bow".equalsIgnoreCase(normalized)) {
+            return "Лук";
+        }
+        if ("Magic".equalsIgnoreCase(normalized)) {
+            return "Магия";
+        }
+        return normalized;
     }
 
     private void drawPanel(SpriteBatch batch, Texture pixel, float x, float y, float width, float height) {
@@ -116,23 +152,10 @@ public class CharacterWindow {
         batch.setColor(Color.WHITE);
     }
 
-    private void drawInventory(SpriteBatch batch, BitmapFont bodyFont, float x, float y, PlayerData playerData) {
-        bodyFont.setColor(Color.valueOf("4B3427FF"));
-        if (playerData.getInventory().isEmpty()) {
-            bodyFont.draw(batch, "- Empty", x, y);
-            return;
-        }
-
-        for (int i = 0; i < playerData.getInventory().size() && i < 3; i++) {
-            Item item = playerData.getInventory().get(i);
-            bodyFont.draw(batch, "- " + item.getName(), x, y - i * INVENTORY_LINE_GAP);
-        }
-    }
-
     private void drawFieldLine(SpriteBatch batch, BitmapFont font, String label, String value, float x, float y) {
         font.draw(batch, label, x, y);
         font.setColor(Color.valueOf("3F2A1EFF"));
-        font.draw(batch, value, x + 120f, y);
+        font.draw(batch, value, x + FIELD_VALUE_OFFSET_X, y);
         font.setColor(Color.valueOf("513729FF"));
     }
 
@@ -150,7 +173,13 @@ public class CharacterWindow {
         }
     }
 
-    private void drawHealthBar(SpriteBatch batch, Texture pixel, float x, float y, float width, float height, PlayerData playerData) {
+    private void drawHealthBar(SpriteBatch batch,
+                               Texture pixel,
+                               float x,
+                               float y,
+                               float width,
+                               float height,
+                               PlayerData playerData) {
         float ratio = playerData.getMaxHealth() == 0 ? 0f : playerData.getHealth() / (float) playerData.getMaxHealth();
         float clampedRatio = MathUtils.clamp(ratio, 0f, 1f);
 
@@ -174,12 +203,16 @@ public class CharacterWindow {
         batch.setColor(Color.WHITE);
     }
 
-    public void dispose() {
-        if (windowTexture != null) {
-            windowTexture.dispose();
+    private void drawInventory(SpriteBatch batch, BitmapFont bodyFont, float x, float y, PlayerData playerData) {
+        bodyFont.setColor(Color.valueOf("4B3427FF"));
+        if (playerData.getInventory().isEmpty()) {
+            bodyFont.draw(batch, "- Пусто", x, y);
+            return;
         }
-        if (portraitTexture != null) {
-            portraitTexture.dispose();
+
+        for (int i = 0; i < playerData.getInventory().size() && i < 3; i++) {
+            Item item = playerData.getInventory().get(i);
+            bodyFont.draw(batch, "- " + item.getName(), x, y - i * INVENTORY_LINE_GAP);
         }
     }
 }
