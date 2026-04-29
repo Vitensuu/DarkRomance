@@ -8,9 +8,11 @@ import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import com.kotcrab.vis.ui.widget.VisTextButton;
 import com.team7.game1.DarkRomanceGame;
+import com.team7.game1.models.PlayerData;
 
 public class IntroScreen implements Screen {
     private final DarkRomanceGame game;
@@ -29,15 +31,19 @@ public class IntroScreen implements Screen {
         table.setFillParent(true);
         stage.addActor(table);
 
-        Label introText = new Label(
-            "Вы просыпаетесь в тёмном лесу...\n" +
-                "Ваша задача - найти выход и раскрыть тайну.\n\n" +
-                "Нажмите 'Играть', чтобы начать.",
-            DarkRomanceGame.skin);
-        introText.setWrap(true);
-        introText.setAlignment(com.badlogic.gdx.utils.Align.center);
+        PlayerData playerData = game.getCurrentPlayerData();
+        String playerName = playerData != null ? playerData.getUsername() : "Hero";
 
-        VisTextButton playButton = new VisTextButton("Играть");
+        Label introText = new Label(
+            playerName + ", you wake up in a dark forest...\n" +
+                "Your task is to find the way out and uncover the secret.\n\n" +
+                "Press 'Play' to begin your journey.",
+            DarkRomanceGame.skin
+        );
+        introText.setWrap(true);
+        introText.setAlignment(Align.center);
+
+        VisTextButton playButton = new VisTextButton("Play");
         playButton.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
