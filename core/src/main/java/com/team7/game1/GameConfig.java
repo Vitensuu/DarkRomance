@@ -60,7 +60,7 @@ public final class GameConfig {
         public static final Color FALLBACK_NAMEPLATE_BG = Color.valueOf("D6DDE5FF");
         public static final Color FALLBACK_BUTTON_BG = Color.valueOf("F4F0E8FF");
 
-        public static final String HINT_TEXT = "Esc - close   F / Enter / Space - next";
+        public static final String HINT_TEXT = "Esc - закрыть   F / Enter / Space - далее";
 
         private Dialog() {
         }

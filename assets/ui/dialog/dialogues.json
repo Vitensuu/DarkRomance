@@ -1,36 +1,23 @@
 {
   "default": {
-    "name": "NPC",
-    "portrait": "ui/dialog/portraits/default_npc.png",
+    "name": "НПС",
     "lines": [
-      "Hello there."
+      "Здравствуйте."
     ]
   },
-  "archer": {
-    "name": "Archer",
-    "portrait": "ui/dialog/portraits/archer_portrait.png",
+  "Hero": {
+    "name": "Герой",
     "lines": [
-      "Keep your voice down. The woods are listening tonight.",
-      "I saw movement near the old path before sunset.",
-      "If you keep going, stay close and trust what you hear."
+      "Так ты и есть тот самый темный маг....",
+      "Если пойдёшь дальше, знай что я буду тем кто тебя остановит"
     ]
   },
   "guardian": {
-    "name": "Guardian",
-    "portrait": "ui/dialog/portraits/guardian_portrait.png",
+    "name": "Страж?",
     "lines": [
-      "If you are heading deeper inside, stay ready and do not travel alone.",
-      "The road ahead looks calm, but it never stays that way for long.",
-      "Come back if you need cover. I will keep watch here."
-    ]
-  },
-  "villager": {
-    "name": "Villager",
-    "portrait": "ui/dialog/portraits/villager_portrait.png",
-    "lines": [
-      "Good evening. Strange things have been happening near the village.",
-      "People say the forest grows louder after dark.",
-      "If you learn anything, please come tell us."
+      "Приветствую вас, playerName ",
+      "Дорога впереди кажется спокойной, но это ненадолго.",
+      "Но не беспокойтесб мы всегда будем на вашей строне"
     ]
   }
 }

@@ -101,11 +101,11 @@ public abstract class NPC implements Interactable {
     }
 
     public String getDialogTitle() {
-        return "NPC";
+        return "НПС";
     }
 
     public String getDialogText() {
-        return "Hello there.";
+        return "Здравствуйте.";
     }
 
     public String getDialogueId() {
@@ -129,7 +129,7 @@ public abstract class NPC implements Interactable {
 
     @Override
     public String getInteractionPrompt() {
-        return "Talk";
+        return "Поговорить";
     }
 
     protected boolean shouldApproachPlayer(PlayerCharacter player, float playerDistance) {

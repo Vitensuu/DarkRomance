@@ -65,7 +65,7 @@ public class NpcDialogueLibrary implements Disposable {
 
         JsonValue root = new JsonReader().parse(dialogueFile);
         for (JsonValue entry = root.child; entry != null; entry = entry.next) {
-            String name = entry.getString("name", "NPC");
+            String name = entry.getString("name", "НПС");
             String portraitPath = entry.getString("portrait", null);
             JsonValue linesValue = entry.get("lines");
             String[] lines = new String[] { "..." };

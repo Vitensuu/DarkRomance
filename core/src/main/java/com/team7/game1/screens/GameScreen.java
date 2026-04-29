@@ -27,8 +27,8 @@ import com.team7.game1.models.NPC;
 import com.team7.game1.models.NPCHero;
 import com.team7.game1.models.PlayerCharacter;
 import com.team7.game1.models.PlayerData;
-import com.team7.game1.models.VillagerNPC;
 import com.team7.game1.ui.CharacterWindow;
+import com.team7.game1.ui.GameMenuWindow;
 import com.team7.game1.ui.NpcDialogueEntry;
 import com.team7.game1.ui.NpcDialogueLibrary;
 import com.team7.game1.utils.SaveManager;
@@ -40,6 +40,7 @@ import com.team7.game1.world.tiled.TriggerService;
 public class GameScreen implements Screen {
 
     private static final String GAME_MUSIC_PATH = "music/game_theme.mp3";
+    private static final float DEFAULT_MUSIC_VOLUME = 0.32f;
     private static final Color WORLD_COLOR = Color.valueOf("2F4A2CFF");
     private static final Color WORLD_ACCENT = Color.valueOf("405C34FF");
     private static final float MAP_SCALE = GameConfig.World.MAP_SCALE;
@@ -49,10 +50,10 @@ public class GameScreen implements Screen {
     private static final float HERO_CAMP_MIN_Y = 4760f;
     private static final float HERO_CAMP_MAX_X = 5680f;
     private static final float HERO_CAMP_MAX_Y = 5560f;
-    private static final float VILLAGER_BETWEEN_MIN_X = 3320f;
-    private static final float VILLAGER_BETWEEN_MIN_Y = 5890f;
-    private static final float VILLAGER_BETWEEN_MAX_X = 3750f;
-    private static final float VILLAGER_BETWEEN_MAX_Y = 6230f;
+    private static final float GUARDIAN_MIN_X = 3320f;
+    private static final float GUARDIAN_MIN_Y = 5890f;
+    private static final float GUARDIAN_MAX_X = 3750f;
+    private static final float GUARDIAN_MAX_Y = 6230f;
 
     private final DarkRomanceGame game;
     private final GlyphLayout glyphLayout = new GlyphLayout();
@@ -81,6 +82,9 @@ public class GameScreen implements Screen {
     private float worldHeight = DarkRomanceGame.DESIGN_HEIGHT;
     private PlayerData playerData;
     private CharacterWindow characterWindow;
+    private GameMenuWindow gameMenuWindow;
+    private float musicVolume = DEFAULT_MUSIC_VOLUME;
+    private boolean musicMuted;
     private boolean startSequenceActive = true;
     private String activeTriggerId;
     private String currentMapPath = DEFAULT_MAP_PATH;
@@ -113,6 +117,7 @@ public class GameScreen implements Screen {
         float wakeUpDurationSeconds = player.getActionAnimationDuration(CharacterAnimator.AnimationState.WAKE_UP);
         player.triggerAnimationState(CharacterAnimator.AnimationState.WAKE_UP, wakeUpDurationSeconds);
         characterWindow = new CharacterWindow();
+        gameMenuWindow = new GameMenuWindow();
         npcs = new Array<NPC>();
         npcs.add(
             new NPCHero(
@@ -122,19 +127,20 @@ public class GameScreen implements Screen {
                 HERO_CAMP_MIN_Y,
                 HERO_CAMP_MAX_X,
                 HERO_CAMP_MAX_Y,
-                NPCHero.ROBE_ARCHER
+                NPCHero.HERO_PROFILE
             )
         );
-        VillagerNPC villagerNpc = new VillagerNPC(
-            (VILLAGER_BETWEEN_MIN_X + VILLAGER_BETWEEN_MAX_X) * 0.5f,
-            (VILLAGER_BETWEEN_MIN_Y + VILLAGER_BETWEEN_MAX_Y) * 0.5f,
-            VILLAGER_BETWEEN_MIN_X,
-            VILLAGER_BETWEEN_MIN_Y,
-            VILLAGER_BETWEEN_MAX_X,
-            VILLAGER_BETWEEN_MAX_Y
+        npcs.add(
+            new NPCHero(
+                (GUARDIAN_MIN_X + GUARDIAN_MAX_X) * 0.5f,
+                (GUARDIAN_MIN_Y + GUARDIAN_MAX_Y) * 0.5f,
+                GUARDIAN_MIN_X,
+                GUARDIAN_MIN_Y,
+                GUARDIAN_MAX_X,
+                GUARDIAN_MAX_Y,
+                NPCHero.GUARDIAN_PROFILE
+            )
         );
-        villagerNpc.setPlayerName(playerData.getUsername());
-        npcs.add(villagerNpc);
     }
 
     @Override
@@ -166,13 +172,56 @@ public class GameScreen implements Screen {
         batch.begin();
         drawDialog();
         characterWindow.draw(batch, pixel, viewport, playerData, player.getEquippedWeapon());
+        gameMenuWindow.draw(batch, pixel, viewport, musicMuted, musicVolume);
         batch.end();
     }
 
     private void update(float delta) {
-        if (Gdx.input.isKeyJustPressed(Input.Keys.C)) {
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+            if (gameMenuWindow.isVisible()) {
+                gameMenuWindow.close();
+                return;
+            }
+            if (activeDialogNpc != null) {
+                activeDialogNpc = null;
+                activeDialogLineIndex = 0;
+                return;
+            }
+            gameMenuWindow.open();
+            return;
+        }
+
+        if (Gdx.input.isKeyJustPressed(Input.Keys.C) && !gameMenuWindow.isVisible()) {
             characterWindow.toggle();
         }
+
+        if (gameMenuWindow.isVisible()) {
+            GameMenuWindow.MenuAction menuAction = gameMenuWindow.handleInput(viewport);
+            if (menuAction == GameMenuWindow.MenuAction.CONTINUE) {
+                gameMenuWindow.close();
+                return;
+            }
+            if (menuAction == GameMenuWindow.MenuAction.TOGGLE_MUTE) {
+                toggleMusicMute();
+                return;
+            }
+            if (menuAction == GameMenuWindow.MenuAction.VOLUME_DOWN) {
+                setMusicVolume(musicVolume - 0.1f);
+                return;
+            }
+            if (menuAction == GameMenuWindow.MenuAction.VOLUME_UP) {
+                setMusicVolume(musicVolume + 0.1f);
+                return;
+            }
+            if (menuAction == GameMenuWindow.MenuAction.EXIT_GAME) {
+                SaveManager.savePlayer(playerData);
+                Gdx.app.exit();
+                return;
+            }
+            player.update(delta, 0f, 0f, worldWidth, worldHeight);
+            return;
+        }
+
         if (startSequenceActive) {
             if (!player.isAnimationStateActive(CharacterAnimator.AnimationState.WAKE_UP)) {
                 startSequenceActive = false;
@@ -340,12 +389,6 @@ public class GameScreen implements Screen {
     }
 
     private void handleDialogInput() {
-        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
-            activeDialogNpc = null;
-            activeDialogLineIndex = 0;
-            return;
-        }
-
         if (activeDialogNpc != null) {
             if (Gdx.input.isKeyJustPressed(Input.Keys.F)
                 || Gdx.input.isKeyJustPressed(Input.Keys.ENTER)
@@ -451,7 +494,7 @@ public class GameScreen implements Screen {
         float hintY = panelY + 24f;
         NpcDialogueEntry dialogueEntry = dialogueLibrary.getEntry(activeDialogNpc.getDialogueId());
         String[] dialogLines = dialogueEntry.getLines();
-        String dialogText = dialogLines[Math.min(activeDialogLineIndex, dialogLines.length - 1)];
+        String dialogText = applyDialogueTokens(dialogLines[Math.min(activeDialogLineIndex, dialogLines.length - 1)]);
 
         batch.setColor(GameConfig.Dialog.PORTRAIT_BG);
         batch.draw(pixel, portraitX, portraitY, GameConfig.Dialog.PORTRAIT_SIZE, GameConfig.Dialog.PORTRAIT_SIZE);
@@ -504,7 +547,7 @@ public class GameScreen implements Screen {
             batch.setColor(Color.WHITE);
         }
 
-        glyphLayout.setText(titleFont, isLastDialogLine() ? "Close" : "Next");
+        glyphLayout.setText(titleFont, isLastDialogLine() ? "Закрыть" : "Далее");
         titleFont.draw(
             batch,
             glyphLayout,
@@ -525,10 +568,10 @@ public class GameScreen implements Screen {
         );
         batch.draw(
             pixel,
-            VILLAGER_BETWEEN_MIN_X,
-            VILLAGER_BETWEEN_MIN_Y,
-            VILLAGER_BETWEEN_MAX_X - VILLAGER_BETWEEN_MIN_X,
-            VILLAGER_BETWEEN_MAX_Y - VILLAGER_BETWEEN_MIN_Y
+            GUARDIAN_MIN_X,
+            GUARDIAN_MIN_Y,
+            GUARDIAN_MAX_X - GUARDIAN_MIN_X,
+            GUARDIAN_MAX_Y - GUARDIAN_MIN_Y
         );
         batch.setColor(Color.WHITE);
     }
@@ -557,6 +600,19 @@ public class GameScreen implements Screen {
         float deltaX = player.getCenterX() - x;
         float deltaY = player.getCenterY() - y;
         return (float) Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+    }
+
+    private String applyDialogueTokens(String dialogueLine) {
+        if (dialogueLine == null) {
+            return "";
+        }
+        String username = "Игрок";
+        if (playerData != null && playerData.getUsername() != null && !playerData.getUsername().trim().isEmpty()) {
+            username = playerData.getUsername().trim();
+        }
+        return dialogueLine
+            .replace("{playerName}", username)
+            .replace("playerName", username);
     }
 
     private void loadDialogTextures() {
@@ -642,6 +698,9 @@ public class GameScreen implements Screen {
         if (characterWindow != null) {
             characterWindow.dispose();
         }
+        if (gameMenuWindow != null) {
+            gameMenuWindow.dispose();
+        }
         player.dispose();
         for (NPC npc : npcs) {
             npc.dispose();
@@ -663,7 +722,7 @@ public class GameScreen implements Screen {
 
         backgroundMusic = Gdx.audio.newMusic(Gdx.files.internal(GAME_MUSIC_PATH));
         backgroundMusic.setLooping(true);
-        backgroundMusic.setVolume(0.32f);
+        applyMusicVolume();
         backgroundMusic.play();
     }
 
@@ -675,6 +734,23 @@ public class GameScreen implements Screen {
         backgroundMusic.stop();
         backgroundMusic.dispose();
         backgroundMusic = null;
+    }
+
+    private void toggleMusicMute() {
+        musicMuted = !musicMuted;
+        applyMusicVolume();
+    }
+
+    private void setMusicVolume(float targetVolume) {
+        musicVolume = MathUtils.clamp(targetVolume, 0f, 1f);
+        applyMusicVolume();
+    }
+
+    private void applyMusicVolume() {
+        if (backgroundMusic == null) {
+            return;
+        }
+        backgroundMusic.setVolume(musicMuted ? 0f : musicVolume);
     }
 
     private enum MoveDirection {
