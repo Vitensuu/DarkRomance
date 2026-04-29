@@ -6,7 +6,10 @@ import com.badlogic.gdx.utils.Json;
 import com.badlogic.gdx.utils.JsonReader;
 import com.badlogic.gdx.utils.JsonValue;
 import com.badlogic.gdx.utils.JsonWriter;
+import com.team7.game1.models.Item;
 import com.team7.game1.models.PlayerData;
+import java.util.ArrayList;
+import java.util.List;
 
 public class SaveManager {
 
@@ -36,6 +39,8 @@ public class SaveManager {
             playerData.setScore(root.getInt("score", 0));
             playerData.setCoins(root.getInt("coins", 0));
             playerData.setWorldPosition(root.getFloat("worldX", 0f), root.getFloat("worldY", 0f));
+            playerData.setInventory(readInventory(root.get("inventory")));
+            playerData.ensureDefaultInventory();
             return playerData;
         } catch (Exception exception) {
             Gdx.app.error("SaveManager", "Failed to load player save: " + saveFile.path(), exception);
@@ -62,6 +67,7 @@ public class SaveManager {
             payload.coins = playerData.getCoins();
             payload.worldX = playerData.getWorldX();
             payload.worldY = playerData.getWorldY();
+            payload.inventory = toPayloadItems(playerData.getInventory());
 
             saveFile.writeString(json.prettyPrint(payload), false, "UTF-8");
         } catch (Exception exception) {
@@ -95,6 +101,45 @@ public class SaveManager {
         return builder.toString();
     }
 
+    private static List<Item> readInventory(JsonValue inventoryValue) {
+        List<Item> items = new ArrayList<Item>();
+        if (inventoryValue == null) {
+            return items;
+        }
+
+        for (JsonValue itemValue = inventoryValue.child; itemValue != null; itemValue = itemValue.next) {
+            String id = itemValue.getString("id", "");
+            String name = itemValue.getString("name", "Unknown Item");
+            String typeName = itemValue.getString("type", Item.ItemType.MISC.name());
+            String description = itemValue.getString("description", "");
+
+            Item.ItemType type;
+            try {
+                type = Item.ItemType.valueOf(typeName);
+            } catch (IllegalArgumentException exception) {
+                type = Item.ItemType.MISC;
+            }
+
+            items.add(new Item(id, name, type, description));
+        }
+
+        return items;
+    }
+
+    private static SaveItemPayload[] toPayloadItems(List<Item> items) {
+        SaveItemPayload[] payloads = new SaveItemPayload[items.size()];
+        for (int i = 0; i < items.size(); i++) {
+            Item item = items.get(i);
+            SaveItemPayload payload = new SaveItemPayload();
+            payload.id = item.getId();
+            payload.name = item.getName();
+            payload.type = item.getType().name();
+            payload.description = item.getDescription();
+            payloads[i] = payload;
+        }
+        return payloads;
+    }
+
     private static class SavePayload {
         public String username;
         public int health;
@@ -104,5 +149,13 @@ public class SaveManager {
         public int coins;
         public float worldX;
         public float worldY;
+        public SaveItemPayload[] inventory;
+    }
+
+    private static class SaveItemPayload {
+        public String id;
+        public String name;
+        public String type;
+        public String description;
     }
 }

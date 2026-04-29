@@ -306,6 +306,7 @@ public class LoginScreen implements Screen {
                     if ("OK".equals(response)) {
                         PlayerData playerData = SaveManager.loadOrCreatePlayer(username);
                         playerData.setUsername(username);
+                        playerData.ensureDefaultInventory();
                         game.setCurrentPlayerData(playerData);
                         game.setScreen(new IntroScreen(game));
                     } else {

@@ -1,5 +1,9 @@
 package com.team7.game1.models;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 public class PlayerData {
 
     public static final int DEFAULT_MAX_HEALTH = 100;
@@ -13,6 +17,7 @@ public class PlayerData {
     private int coins;
     private float worldX;
     private float worldY;
+    private final List<Item> inventory = new ArrayList<Item>();
 
     public PlayerData() {
         this("Player");
@@ -97,6 +102,50 @@ public class PlayerData {
         this.worldY = worldY;
     }
 
+    public List<Item> getInventory() {
+        return Collections.unmodifiableList(inventory);
+    }
+
+    public void setInventory(List<Item> items) {
+        inventory.clear();
+        if (items != null) {
+            inventory.addAll(items);
+        }
+    }
+
+    public void addItem(Item item) {
+        if (item != null) {
+            inventory.add(item);
+        }
+    }
+
+    public boolean removeItemById(String itemId) {
+        if (itemId == null || itemId.trim().isEmpty()) {
+            return false;
+        }
+
+        for (int i = 0; i < inventory.size(); i++) {
+            if (itemId.equals(inventory.get(i).getId())) {
+                inventory.remove(i);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public boolean hasItem(String itemId) {
+        if (itemId == null || itemId.trim().isEmpty()) {
+            return false;
+        }
+
+        for (Item item : inventory) {
+            if (itemId.equals(item.getId())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public void restoreToFullHealth() {
         health = maxHealth;
     }
@@ -139,6 +188,19 @@ public class PlayerData {
 
     public boolean isAlive() {
         return health > 0;
+    }
+
+    public void ensureDefaultInventory() {
+        if (!inventory.isEmpty()) {
+            return;
+        }
+
+        inventory.add(new Item("traveler_bow", "Traveler's Bow", Item.ItemType.WEAPON,
+            "A simple bow carried by the hero."));
+        inventory.add(new Item("forest_key", "Old Forest Key", Item.ItemType.QUEST,
+            "A worn key found near the forest path."));
+        inventory.add(new Item("healing_herb", "Healing Herb", Item.ItemType.CONSUMABLE,
+            "A fresh herb with a calming scent."));
     }
 
     private int clampHealth(int health, int maxHealth) {

@@ -24,6 +24,7 @@ import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.team7.game1.DarkRomanceGame;
 import com.team7.game1.models.CharacterAnimationState;
+import com.team7.game1.models.Interactable;
 import com.team7.game1.models.NPC;
 import com.team7.game1.models.NPCHero;
 import com.team7.game1.models.PlayerCharacter;
@@ -46,7 +47,6 @@ public class GameScreen implements Screen {
     private static final float DIALOG_WIDTH = DarkRomanceGame.DESIGN_WIDTH - 180f;
     private static final float DIALOG_HEIGHT = 210f;
     private static final float DIALOG_PADDING = 26f;
-    private static final float NPC_TALK_DISTANCE = 115f;
     private static final float DIALOG_PORTRAIT_SIZE = 120f;
     private static final float DIALOG_NEXT_BUTTON_WIDTH = 140f;
     private static final float DIALOG_NEXT_BUTTON_HEIGHT = 42f;
@@ -258,9 +258,10 @@ public class GameScreen implements Screen {
             return;
         }
 
-        NPC nearestNpc = findNearestNpcWithinTalkDistance();
-        if (nearestNpc != null) {
-            activeDialogNpc = nearestNpc;
+        Interactable nearestInteractable = findNearestInteractable();
+        if (nearestInteractable instanceof NPC) {
+            nearestInteractable.interact(player);
+            activeDialogNpc = (NPC) nearestInteractable;
             activeDialogLineIndex = 0;
             return;
         }
@@ -421,21 +422,24 @@ public class GameScreen implements Screen {
         batch.setColor(Color.WHITE);
     }
 
-    private NPC findNearestNpcWithinTalkDistance() {
-        NPC nearestNpc = null;
-        float nearestDistance = NPC_TALK_DISTANCE;
+    private Interactable findNearestInteractable() {
+        Interactable nearestInteractable = null;
+        float nearestDistance = Float.MAX_VALUE;
 
         for (NPC npc : npcs) {
+            if (!npc.canInteract(player)) {
+                continue;
+            }
             float npcCenterX = npc.getX() + npc.getWidth() / 2f;
             float npcCenterY = npc.getY() + npc.getHeight() / 2f;
             float distance = playerDistanceTo(npcCenterX, npcCenterY);
-            if (distance <= nearestDistance) {
+            if (distance < nearestDistance) {
                 nearestDistance = distance;
-                nearestNpc = npc;
+                nearestInteractable = npc;
             }
         }
 
-        return nearestNpc;
+        return nearestInteractable;
     }
 
     private float playerDistanceTo(float x, float y) {

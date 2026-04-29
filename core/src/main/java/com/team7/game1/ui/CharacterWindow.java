@@ -10,6 +10,7 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.team7.game1.DarkRomanceGame;
+import com.team7.game1.models.Item;
 import com.team7.game1.models.PlayerData;
 
 public class CharacterWindow {
@@ -29,6 +30,8 @@ public class CharacterWindow {
     private static final float BAR_HEIGHT = 14f;
     private static final float FOOTER_RIGHT_PADDING = 72f;
     private static final float FIELD_FONT_SCALE = 0.58f;
+    private static final float INVENTORY_VALUE_OFFSET_X = 120f;
+    private static final float INVENTORY_LINE_GAP = 18f;
 
     private final GlyphLayout glyphLayout = new GlyphLayout();
     private final Texture windowTexture;
@@ -80,9 +83,11 @@ public class CharacterWindow {
         drawFieldLine(batch, titleFont, "Level", String.valueOf(playerData.getLevel()), textX, textY - LINE_GAP);
         float healthY = textY - LINE_GAP * 2f;
         titleFont.draw(batch, "Health", textX, healthY);
-        drawFieldLine(batch, titleFont, "Score", String.valueOf(playerData.getScore()), textX, textY - LINE_GAP * 3f);
+        float inventoryY = textY - LINE_GAP * 3f;
+        titleFont.draw(batch, "Inventory", textX, inventoryY);
 
         drawHealthBar(batch, pixel, textX + HEALTH_LABEL_WIDTH, healthY - BAR_HEIGHT + 1f, BAR_WIDTH, BAR_HEIGHT, playerData);
+        drawInventory(batch, bodyFont, textX + INVENTORY_VALUE_OFFSET_X, inventoryY, playerData);
 
         glyphLayout.setText(bodyFont, "Press C to close");
         bodyFont.draw(batch, glyphLayout, x + WINDOW_WIDTH - FOOTER_RIGHT_PADDING - glyphLayout.width, y + 44f);
@@ -102,6 +107,19 @@ public class CharacterWindow {
         batch.setColor(Color.valueOf("CDB79CFF"));
         batch.draw(pixel, x, y, width, height);
         batch.setColor(Color.WHITE);
+    }
+
+    private void drawInventory(SpriteBatch batch, BitmapFont bodyFont, float x, float y, PlayerData playerData) {
+        bodyFont.setColor(Color.valueOf("4B3427FF"));
+        if (playerData.getInventory().isEmpty()) {
+            bodyFont.draw(batch, "- Empty", x, y);
+            return;
+        }
+
+        for (int i = 0; i < playerData.getInventory().size() && i < 3; i++) {
+            Item item = playerData.getInventory().get(i);
+            bodyFont.draw(batch, "- " + item.getName(), x, y - i * INVENTORY_LINE_GAP);
+        }
     }
 
     private void drawFieldLine(SpriteBatch batch, BitmapFont font, String label, String value, float x, float y) {
