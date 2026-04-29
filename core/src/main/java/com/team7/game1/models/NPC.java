@@ -22,7 +22,7 @@ public abstract class NPC implements Interactable {
     private PatrolCorner currentCorner = PatrolCorner.BOTTOM_RIGHT;
     private boolean chasingPlayer;
     private FacingDirection facing = FacingDirection.DOWN;
-    private CharacterAnimationState animationState = CharacterAnimationState.BASE;
+    private CharacterAnimator.AnimationState animationState = CharacterAnimator.AnimationState.BASE;
     private float animationStateTimer;
     private float locomotionTime;
     private float actionTime;
@@ -32,7 +32,7 @@ public abstract class NPC implements Interactable {
                   float patrolMinX, float patrolMinY,
                   float patrolMaxX, float patrolMaxY,
                   float moveSpeed, float detectionRadius, float interactionRadius,
-                  String assetFolder, String assetPrefix) {
+                  AnimationPreset animationPreset) {
         position.set(startX, startY);
         patrolMin.set(patrolMinX, patrolMinY);
         patrolMax.set(patrolMaxX, patrolMaxY);
@@ -40,7 +40,7 @@ public abstract class NPC implements Interactable {
         this.detectionRadius = detectionRadius;
         this.interactionRadius = interactionRadius;
         targetPoint.set(patrolMaxX, patrolMinY);
-        animator = new CharacterAnimator(assetFolder, assetPrefix, 3.1f);
+        animator = new CharacterAnimator(animationPreset, 3.1f);
     }
 
     public final void update(float delta, PlayerCharacter player) {
@@ -96,6 +96,10 @@ public abstract class NPC implements Interactable {
         return animator.getFrame(facing, moving, locomotionTime, actionTime, animationState);
     }
 
+    public TextureRegion getDialoguePortraitFrame() {
+        return getCurrentFrame();
+    }
+
     public String getDialogTitle() {
         return "NPC";
     }
@@ -129,7 +133,7 @@ public abstract class NPC implements Interactable {
     }
 
     protected boolean shouldApproachPlayer(PlayerCharacter player, float playerDistance) {
-        return playerDistance <= detectionRadius;
+        return false;
     }
 
     protected void onInteract(PlayerCharacter player) {
@@ -145,7 +149,7 @@ public abstract class NPC implements Interactable {
         return Math.max(interactionRadius, 115f);
     }
 
-    protected void triggerAnimationState(CharacterAnimationState newState, float durationSeconds) {
+    protected void triggerAnimationState(CharacterAnimator.AnimationState newState, float durationSeconds) {
         animationState = newState;
         animationStateTimer = durationSeconds;
         actionTime = 0f;
@@ -164,13 +168,13 @@ public abstract class NPC implements Interactable {
     }
 
     private void updateAnimationState(float delta) {
-        if (animationState == CharacterAnimationState.BASE) {
+        if (animationState == CharacterAnimator.AnimationState.BASE) {
             return;
         }
 
         animationStateTimer -= delta;
         if (animationStateTimer <= 0f) {
-            animationState = CharacterAnimationState.BASE;
+            animationState = CharacterAnimator.AnimationState.BASE;
             animationStateTimer = 0f;
             actionTime = 0f;
         }

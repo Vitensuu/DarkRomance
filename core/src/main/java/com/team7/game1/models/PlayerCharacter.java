@@ -13,18 +13,19 @@ public class PlayerCharacter {
     private final Vector2 movement = new Vector2();
 
     private FacingDirection facing = FacingDirection.DOWN;
-    private CharacterAnimationState animationState = CharacterAnimationState.BASE;
+    private CharacterAnimator.AnimationState animationState = CharacterAnimator.AnimationState.BASE;
+    private String equippedWeapon = "Unarmed";
     private float animationStateTimer;
     private float locomotionTime;
     private float actionTime;
     private float speed = DEFAULT_SPEED;
 
     public PlayerCharacter(float startX, float startY) {
-        this(startX, startY, "characters/robe_frames", "robe");
+        this(startX, startY, AnimationPreset.ROBE);
     }
 
-    public PlayerCharacter(float startX, float startY, String assetFolder, String assetPrefix) {
-        animator = new CharacterAnimator(assetFolder, assetPrefix, 3.4f);
+    public PlayerCharacter(float startX, float startY, AnimationPreset preset) {
+        animator = new CharacterAnimator(preset, 3.4f);
         position.set(startX, startY);
     }
 
@@ -99,14 +100,23 @@ public class PlayerCharacter {
         return animator.getDrawHeight(facing, isMoving(), locomotionTime, actionTime, animationState);
     }
 
-    public void triggerAnimationState(CharacterAnimationState newState, float durationSeconds) {
+    public void triggerAnimationState(CharacterAnimator.AnimationState newState, float durationSeconds) {
         animationState = newState;
         animationStateTimer = durationSeconds;
         actionTime = 0f;
+        if (newState == CharacterAnimator.AnimationState.ATTACK_BOW) {
+            equippedWeapon = "Bow";
+        } else if (newState == CharacterAnimator.AnimationState.ATTACK_MAGIC) {
+            equippedWeapon = "Magic";
+        }
     }
 
-    public boolean isAnimationStateActive(CharacterAnimationState state) {
+    public boolean isAnimationStateActive(CharacterAnimator.AnimationState state) {
         return animationState == state;
+    }
+
+    public String getEquippedWeapon() {
+        return equippedWeapon;
     }
 
     public void dispose() {
@@ -118,13 +128,13 @@ public class PlayerCharacter {
     }
 
     private void updateAnimationState(float delta) {
-        if (animationState == CharacterAnimationState.BASE) {
+        if (animationState == CharacterAnimator.AnimationState.BASE) {
             return;
         }
 
         animationStateTimer -= delta;
         if (animationStateTimer <= 0f) {
-            animationState = CharacterAnimationState.BASE;
+            animationState = CharacterAnimator.AnimationState.BASE;
             animationStateTimer = 0f;
             actionTime = 0f;
         }

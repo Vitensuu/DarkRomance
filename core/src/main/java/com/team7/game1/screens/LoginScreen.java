@@ -27,7 +27,7 @@ import com.team7.game1.DarkRomanceGame;
 import com.team7.game1.models.PlayerData;
 import com.team7.game1.network.NetworkCallback;
 import com.team7.game1.network.NetworkClient;
-import com.team7.game1.utils.Constants;
+import com.team7.game1.GameConfig;
 import com.team7.game1.utils.SaveManager;
 
 public class LoginScreen implements Screen {
@@ -296,7 +296,7 @@ public class LoginScreen implements Screen {
         errorLabel.setText("Подключение...");
         updateInteractiveState();
 
-        networkClient.connect(Constants.SERVER_HOST, Constants.SERVER_PORT, new NetworkCallback() {
+        networkClient.connect(GameConfig.Network.SERVER_HOST, GameConfig.Network.SERVER_PORT, new NetworkCallback() {
             @Override
             public void onResponse(String response) {
                 Gdx.app.postRunnable(() -> {

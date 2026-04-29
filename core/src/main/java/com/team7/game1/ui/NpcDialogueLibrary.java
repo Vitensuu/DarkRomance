@@ -8,11 +8,9 @@ import com.badlogic.gdx.utils.GdxRuntimeException;
 import com.badlogic.gdx.utils.JsonReader;
 import com.badlogic.gdx.utils.JsonValue;
 import com.badlogic.gdx.utils.ObjectMap;
+import com.team7.game1.GameConfig;
 
 public class NpcDialogueLibrary implements Disposable {
-
-    private static final String DIALOGUE_FILE_PATH = "ui/dialog/dialogues.json";
-    private static final String DEFAULT_DIALOGUE_ID = "default";
 
     private final ObjectMap<String, NpcDialogueEntry> entries = new ObjectMap<String, NpcDialogueEntry>();
     private final ObjectMap<String, Texture> portraitCache = new ObjectMap<String, Texture>();
@@ -26,7 +24,7 @@ public class NpcDialogueLibrary implements Disposable {
         if (entry != null) {
             return entry;
         }
-        return entries.get(DEFAULT_DIALOGUE_ID);
+        return entries.get(GameConfig.Dialog.DEFAULT_DIALOGUE_ID);
     }
 
     public Texture getPortrait(String dialogueId) {
@@ -60,9 +58,9 @@ public class NpcDialogueLibrary implements Disposable {
     }
 
     private void loadEntries() {
-        FileHandle dialogueFile = Gdx.files.internal(DIALOGUE_FILE_PATH);
+        FileHandle dialogueFile = Gdx.files.internal(GameConfig.Dialog.DATA_PATH);
         if (!dialogueFile.exists()) {
-            throw new GdxRuntimeException("Dialogue file not found: " + DIALOGUE_FILE_PATH);
+            throw new GdxRuntimeException("Dialogue file not found: " + GameConfig.Dialog.DATA_PATH);
         }
 
         JsonValue root = new JsonReader().parse(dialogueFile);
@@ -81,8 +79,8 @@ public class NpcDialogueLibrary implements Disposable {
             entries.put(entry.name, new NpcDialogueEntry(name, portraitPath, lines));
         }
 
-        if (!entries.containsKey(DEFAULT_DIALOGUE_ID)) {
-            throw new GdxRuntimeException("Dialogue file must contain '" + DEFAULT_DIALOGUE_ID + "' entry");
+        if (!entries.containsKey(GameConfig.Dialog.DEFAULT_DIALOGUE_ID)) {
+            throw new GdxRuntimeException("Dialogue file must contain '" + GameConfig.Dialog.DEFAULT_DIALOGUE_ID + "' entry");
         }
     }
 }

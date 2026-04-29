@@ -10,14 +10,13 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.team7.game1.DarkRomanceGame;
+import com.team7.game1.GameConfig;
 import com.team7.game1.models.Item;
 import com.team7.game1.models.PlayerData;
 
 public class CharacterWindow {
 
-    private static final String WINDOW_TEXTURE_PATH = "ui/character/character_window_frame.png";
-    private static final String PORTRAIT_TEXTURE_PATH = "ui/dialog/portraits/archer_portrait.png";
-    private static final float WINDOW_WIDTH = 620f;
+        private static final float WINDOW_WIDTH = 620f;
     private static final float WINDOW_HEIGHT = 405f;
     private static final float PORTRAIT_X = 74f;
     private static final float PORTRAIT_Y = 116f;
@@ -39,11 +38,11 @@ public class CharacterWindow {
     private boolean visible;
 
     public CharacterWindow() {
-        windowTexture = Gdx.files.internal(WINDOW_TEXTURE_PATH).exists()
-            ? new Texture(Gdx.files.internal(WINDOW_TEXTURE_PATH))
+        windowTexture = Gdx.files.internal(GameConfig.Ui.CHARACTER_WINDOW_TEXTURE_PATH).exists()
+            ? new Texture(Gdx.files.internal(GameConfig.Ui.CHARACTER_WINDOW_TEXTURE_PATH))
             : null;
-        portraitTexture = Gdx.files.internal(PORTRAIT_TEXTURE_PATH).exists()
-            ? new Texture(Gdx.files.internal(PORTRAIT_TEXTURE_PATH))
+        portraitTexture = Gdx.files.internal(GameConfig.Ui.CHARACTER_PORTRAIT_TEXTURE_PATH).exists()
+            ? new Texture(Gdx.files.internal(GameConfig.Ui.CHARACTER_PORTRAIT_TEXTURE_PATH))
             : null;
     }
 
@@ -55,7 +54,7 @@ public class CharacterWindow {
         return visible;
     }
 
-    public void draw(SpriteBatch batch, Texture pixel, FitViewport viewport, PlayerData playerData) {
+    public void draw(SpriteBatch batch, Texture pixel, FitViewport viewport, PlayerData playerData, String equippedWeapon) {
         if (!visible || playerData == null) {
             return;
         }
@@ -81,9 +80,10 @@ public class CharacterWindow {
         float textY = y + WINDOW_HEIGHT - CONTENT_TOP_OFFSET;
         drawFieldLine(batch, titleFont, "Name", playerData.getUsername(), textX, textY);
         drawFieldLine(batch, titleFont, "Level", String.valueOf(playerData.getLevel()), textX, textY - LINE_GAP);
-        float healthY = textY - LINE_GAP * 2f;
+        drawFieldLine(batch, titleFont, "Weapon", normalizeWeapon(equippedWeapon), textX, textY - LINE_GAP * 2f);
+        float healthY = textY - LINE_GAP * 3f;
         titleFont.draw(batch, "Health", textX, healthY);
-        float inventoryY = textY - LINE_GAP * 3f;
+        float inventoryY = textY - LINE_GAP * 4f;
         titleFont.draw(batch, "Inventory", textX, inventoryY);
 
         drawHealthBar(batch, pixel, textX + HEALTH_LABEL_WIDTH, healthY - BAR_HEIGHT + 1f, BAR_WIDTH, BAR_HEIGHT, playerData);
@@ -92,6 +92,13 @@ public class CharacterWindow {
         glyphLayout.setText(bodyFont, "Press C to close");
         bodyFont.draw(batch, glyphLayout, x + WINDOW_WIDTH - FOOTER_RIGHT_PADDING - glyphLayout.width, y + 44f);
         titleFont.getData().setScale(originalTitleScaleX, originalTitleScaleY);
+    }
+
+    private String normalizeWeapon(String equippedWeapon) {
+        if (equippedWeapon == null || equippedWeapon.trim().isEmpty()) {
+            return "Unarmed";
+        }
+        return equippedWeapon.trim();
     }
 
     private void drawPanel(SpriteBatch batch, Texture pixel, float x, float y, float width, float height) {

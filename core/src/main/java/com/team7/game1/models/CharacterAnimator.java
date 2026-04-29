@@ -10,6 +10,35 @@ import com.badlogic.gdx.utils.ObjectMap;
 
 public class CharacterAnimator {
 
+    public enum AnimationState {
+        BASE("", false, true),
+        WAKE_UP("wakeup", true, false),
+        ATTACK_MAGIC("magic", true, false),
+        ATTACK_BOW("bow", true, false);
+
+        private final String suffix;
+        private final boolean actionAnimation;
+        private final boolean looping;
+
+        AnimationState(String suffix, boolean actionAnimation, boolean looping) {
+            this.suffix = suffix;
+            this.actionAnimation = actionAnimation;
+            this.looping = looping;
+        }
+
+        public String getSuffix() {
+            return suffix;
+        }
+
+        public boolean isActionAnimation() {
+            return actionAnimation;
+        }
+
+        public boolean isLooping() {
+            return looping;
+        }
+    }
+
     private static final float FRAME_DURATION = 0.11f;
     private static final float ACTION_FRAME_DURATION = 0.09f;
     private static final float WAKE_UP_FRAME_DURATION = 0.35f;
@@ -18,18 +47,22 @@ public class CharacterAnimator {
     private final String basePath;
     private final String assetPrefix;
     private final float drawScale;
-    private final ObjectMap<CharacterAnimationState, AnimationPack> packs = new ObjectMap<CharacterAnimationState, AnimationPack>();
+    private final ObjectMap<AnimationState, AnimationPack> packs = new ObjectMap<AnimationState, AnimationPack>();
     private final ObjectMap<String, Texture> textureCache = new ObjectMap<String, Texture>();
+
+    public CharacterAnimator(AnimationPreset preset, float drawScale) {
+        this(preset.getAssetFolder(), preset.getAssetPrefix(), drawScale);
+    }
 
     public CharacterAnimator(String assetFolder, String assetPrefix, float drawScale) {
         this.basePath = normalizeFolder(assetFolder);
         this.assetPrefix = assetPrefix;
         this.drawScale = drawScale;
-        packs.put(CharacterAnimationState.BASE, loadPack(CharacterAnimationState.BASE));
+        packs.put(AnimationState.BASE, loadPack(AnimationState.BASE));
     }
 
     public TextureRegion getFrame(FacingDirection facing, boolean moving, float locomotionTime,
-                                  float actionTime, CharacterAnimationState state) {
+                                  float actionTime, AnimationState state) {
         AnimationPack pack = getPack(state);
         if (state.isActionAnimation() && pack.hasAction(facing)) {
             return pack.getAction(facing).getKeyFrame(actionTime, state.isLooping());
@@ -38,12 +71,12 @@ public class CharacterAnimator {
     }
 
     public float getDrawWidth(FacingDirection facing, boolean moving, float locomotionTime,
-                              float actionTime, CharacterAnimationState state) {
+                              float actionTime, AnimationState state) {
         return getFrame(facing, moving, locomotionTime, actionTime, state).getRegionWidth() * drawScale;
     }
 
     public float getDrawHeight(FacingDirection facing, boolean moving, float locomotionTime,
-                               float actionTime, CharacterAnimationState state) {
+                               float actionTime, AnimationState state) {
         return getFrame(facing, moving, locomotionTime, actionTime, state).getRegionHeight() * drawScale;
     }
 
@@ -55,7 +88,7 @@ public class CharacterAnimator {
         packs.clear();
     }
 
-    private AnimationPack getPack(CharacterAnimationState state) {
+    private AnimationPack getPack(AnimationState state) {
         AnimationPack pack = packs.get(state);
         if (pack != null) {
             return pack;
@@ -66,15 +99,15 @@ public class CharacterAnimator {
         return loadedPack;
     }
 
-    private AnimationPack loadPack(CharacterAnimationState state) {
-        AnimationPack basePack = packs.get(CharacterAnimationState.BASE);
+    private AnimationPack loadPack(AnimationState state) {
+        AnimationPack basePack = packs.get(AnimationState.BASE);
         AnimationPack pack = new AnimationPack();
 
         for (FacingDirection facing : FacingDirection.values()) {
             String assetBaseName = buildDirectionalAssetName(facing.getAssetDirection(), state);
             String folder = resolveFolder(state, assetBaseName);
 
-            if (state == CharacterAnimationState.BASE) {
+            if (state == AnimationState.BASE) {
                 if (folder == null) {
                     throw missingAsset(
                         "Missing base animation folder",
@@ -88,7 +121,7 @@ public class CharacterAnimator {
             }
 
             pack.copyFrom(basePack, facing);
-            if (state == CharacterAnimationState.WAKE_UP) {
+            if (state == AnimationState.WAKE_UP) {
                 loadWakeUpAnimation(pack, facing);
                 continue;
             }
@@ -123,7 +156,7 @@ public class CharacterAnimator {
     }
 
     private void loadBaseLocomotion(AnimationPack pack, FacingDirection facing, String folder,
-                                    String assetBaseName, CharacterAnimationState state) {
+                                    String assetBaseName, AnimationState state) {
         String idlePath = folder + assetBaseName + ".png";
         FileHandle idleFile = Gdx.files.internal(idlePath);
         FileHandle firstWalkFile = Gdx.files.internal(folder + assetBaseName + "_walk_1.png");
@@ -173,7 +206,7 @@ public class CharacterAnimator {
         throw missingAsset("Missing base idle frame", idlePath, facing, state);
     }
 
-    private void loadActionAnimationIfPresent(AnimationPack pack, FacingDirection facing, CharacterAnimationState state,
+    private void loadActionAnimationIfPresent(AnimationPack pack, FacingDirection facing, AnimationState state,
                                               String folder, String assetBaseName) {
         if (!state.isActionAnimation()) {
             return;
@@ -193,7 +226,7 @@ public class CharacterAnimator {
         pack.putAction(facing, new Animation<TextureRegion>(ACTION_FRAME_DURATION, actionFrames));
     }
 
-    private String buildDirectionalAssetName(String direction, CharacterAnimationState state) {
+    private String buildDirectionalAssetName(String direction, AnimationState state) {
         String baseName = assetPrefix + "_" + direction;
         if (state.getSuffix().isEmpty()) {
             return baseName;
@@ -201,7 +234,7 @@ public class CharacterAnimator {
         return baseName + "_" + state.getSuffix();
     }
 
-    private String resolveFolder(CharacterAnimationState state, String assetBaseName) {
+    private String resolveFolder(AnimationState state, String assetBaseName) {
         Array<String> candidates = buildFolderCandidates(state, assetBaseName);
         for (String candidate : candidates) {
             if (hasFrames(candidate, assetBaseName)) {
@@ -211,7 +244,7 @@ public class CharacterAnimator {
         return null;
     }
 
-    private Array<String> buildFolderCandidates(CharacterAnimationState state, String assetBaseName) {
+    private Array<String> buildFolderCandidates(AnimationState state, String assetBaseName) {
         Array<String> candidates = new Array<String>();
         candidates.add(basePath + assetBaseName + "/");
         candidates.add(basePath + assetPrefix + "/" + assetBaseName + "/");
@@ -254,7 +287,7 @@ public class CharacterAnimator {
         return folder.endsWith("/") ? folder : folder + "/";
     }
 
-    private IllegalStateException missingAsset(String reason, String path, FacingDirection facing, CharacterAnimationState state) {
+    private IllegalStateException missingAsset(String reason, String path, FacingDirection facing, AnimationState state) {
         return new IllegalStateException(reason + ": '" + path + "' for state " + state + " facing " + facing);
     }
 

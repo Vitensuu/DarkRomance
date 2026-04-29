@@ -7,14 +7,12 @@ import com.badlogic.gdx.utils.JsonReader;
 import com.badlogic.gdx.utils.JsonValue;
 import com.badlogic.gdx.utils.JsonWriter;
 import com.team7.game1.models.Item;
+import com.team7.game1.GameConfig;
 import com.team7.game1.models.PlayerData;
 import java.util.ArrayList;
 import java.util.List;
 
 public class SaveManager {
-
-    private static final String SAVE_DIRECTORY = "saves";
-    private static final String SAVE_FILE_SUFFIX = ".json";
 
     private SaveManager() {
     }
@@ -73,11 +71,11 @@ public class SaveManager {
     }
 
     private static FileHandle getPlayerSaveFile(String username) {
-        FileHandle directory = Gdx.files.local(SAVE_DIRECTORY);
+        FileHandle directory = Gdx.files.local(GameConfig.Save.DIRECTORY);
         if (!directory.exists()) {
             directory.mkdirs();
         }
-        return directory.child(normalizeUsername(username) + SAVE_FILE_SUFFIX);
+        return directory.child(normalizeUsername(username)  + GameConfig.Save.FILE_SUFFIX);
     }
 
     private static String normalizeUsername(String username) {

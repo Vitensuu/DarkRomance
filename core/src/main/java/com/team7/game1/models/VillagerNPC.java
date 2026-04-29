@@ -4,23 +4,22 @@ import com.badlogic.gdx.graphics.Color;
 
 public class VillagerNPC extends NPC {
 
-    private static final String DEFAULT_ASSET_FOLDER = "characters/mixed_metal";
-    private static final String DEFAULT_ASSET_PREFIX = "mm";
+    private static final AnimationPreset DEFAULT_PRESET = AnimationPreset.MIXED_METAL;
     private boolean greetingTriggered;
 
     public VillagerNPC(float startX, float startY,
                        float patrolMinX, float patrolMinY,
                        float patrolMaxX, float patrolMaxY) {
         this(startX, startY, patrolMinX, patrolMinY, patrolMaxX, patrolMaxY,
-            DEFAULT_ASSET_FOLDER, DEFAULT_ASSET_PREFIX);
+            DEFAULT_PRESET);
     }
 
     public VillagerNPC(float startX, float startY,
                        float patrolMinX, float patrolMinY,
                        float patrolMaxX, float patrolMaxY,
-                       String assetFolder, String assetPrefix) {
+                       AnimationPreset animationPreset) {
         super(startX, startY, patrolMinX, patrolMinY, patrolMaxX, patrolMaxY,
-            95f, 170f, 44f, assetFolder, assetPrefix);
+            95f, 170f, 44f, animationPreset);
     }
 
     @Override

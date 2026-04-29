@@ -1,5 +1,6 @@
 package com.team7.game1.models;
 
+import com.team7.game1.GameConfig;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -17,7 +18,7 @@ public class PlayerData {
     private int coins;
     private float worldX;
     private float worldY;
-    private String currentMapPath = "maps/Main_map.tmx";
+    private String currentMapPath = GameConfig.World.DEFAULT_MAP_PATH;
     private String activeSpawnMarker;
     private final List<Item> inventory = new ArrayList<Item>();
     private final List<String> visitedMapPaths = new ArrayList<String>();
